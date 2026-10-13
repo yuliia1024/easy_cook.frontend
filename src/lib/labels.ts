@@ -11,75 +11,75 @@ import type {
 } from '../api/types';
 
 export const FOOD_STATE_LABELS: Record<FoodState, string> = {
-  raw: 'сирий',
-  cooked: 'приготований',
-  boiled: 'варений',
-  steamed: 'на пару',
-  fried: 'смажений',
-  baked: 'запечений',
-  roasted: 'обсмажений',
-  dried: 'сухий',
-  canned: 'консервований',
-  frozen: 'заморожений',
-  other: 'інше',
+  raw: 'raw',
+  cooked: 'cooked',
+  boiled: 'boiled',
+  steamed: 'steamed',
+  fried: 'fried',
+  baked: 'baked',
+  roasted: 'roasted',
+  dried: 'dry',
+  canned: 'canned',
+  frozen: 'frozen',
+  other: 'other',
 };
 
 export const FOOD_SOURCE_LABELS: Record<FoodSource, string> = {
   usda_fdc: 'USDA FDC',
-  seed: 'базовий набір',
-  manual: 'вручну',
+  seed: 'base set',
+  manual: 'manual',
 };
 
 export const MEAL_TYPE_LABELS: Record<MealType, string> = {
-  breakfast: 'Сніданок',
-  lunch: 'Обід',
-  dinner: 'Вечеря',
-  snack: 'Перекус',
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+  snack: 'Snack',
 };
 
 export const DIET_TAG_LABELS: Record<DietTag, string> = {
-  vegetarian: 'вегетаріанське',
-  vegan: 'веганське',
-  pescatarian: 'пескетаріанське',
-  gluten_free: 'без глютену',
-  dairy_free: 'без молочного',
-  high_protein: 'багато білка',
-  low_carb: 'мало вуглеводів',
+  vegetarian: 'vegetarian',
+  vegan: 'vegan',
+  pescatarian: 'pescatarian',
+  gluten_free: 'gluten-free',
+  dairy_free: 'dairy-free',
+  high_protein: 'high protein',
+  low_carb: 'low carb',
 };
 
-export const SEX_LABELS: Record<Sex, string> = { male: 'чоловіча', female: 'жіноча' };
+export const SEX_LABELS: Record<Sex, string> = { male: 'male', female: 'female' };
 
 export const ACTIVITY_LEVEL_LABELS: Record<ActivityLevel, string> = {
-  sedentary: 'Мінімальна (сидяча робота)',
-  light: 'Легка (1–3 тренування на тиждень)',
-  moderate: 'Помірна (3–5 тренувань)',
-  active: 'Висока (6–7 тренувань)',
-  very_active: 'Дуже висока (щоденні важкі тренування, фізична праця)',
+  sedentary: 'Sedentary (desk job)',
+  light: 'Light (1–3 workouts a week)',
+  moderate: 'Moderate (3–5 workouts)',
+  active: 'Active (6–7 workouts)',
+  very_active: 'Very active (daily hard training, physical labour)',
 };
 
 export const GOAL_LABELS: Record<Goal, string> = {
-  lose_weight: 'Схуднення',
-  maintain: 'Підтримка ваги',
-  gain_muscle: "Набір м'язової маси",
+  lose_weight: 'Lose weight',
+  maintain: 'Maintain weight',
+  gain_muscle: 'Gain muscle',
 };
 
 export const CALCULATION_MODE_LABELS: Record<CalculationMode, string> = {
-  manual: 'вручну',
-  rule_based: 'за формулою',
+  manual: 'manually',
+  rule_based: 'by formula',
 };
 
 export const MACRO_LABELS: Record<Macro, string> = {
-  kcal: 'Калорії',
-  proteinG: 'Білки',
-  fatG: 'Жири',
-  carbsG: 'Вуглеводи',
+  kcal: 'Calories',
+  proteinG: 'Protein',
+  fatG: 'Fat',
+  carbsG: 'Carbs',
 };
 
 export const MACRO_UNITS: Record<Macro, string> = {
-  kcal: 'ккал',
-  proteinG: 'г',
-  fatG: 'г',
-  carbsG: 'г',
+  kcal: 'kcal',
+  proteinG: 'g',
+  fatG: 'g',
+  carbsG: 'g',
 };
 
 export const MACROS: Macro[] = ['kcal', 'proteinG', 'fatG', 'carbsG'];

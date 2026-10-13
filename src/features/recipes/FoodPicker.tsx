@@ -16,29 +16,29 @@ export function FoodPicker({ onPick }: { onPick: (food: FoodItem) => void }) {
   return (
     <div className="rounded-lg border border-stone-200 bg-stone-50 p-3">
       <label htmlFor="food-search" className="text-sm font-medium">
-        Додати інгредієнт з каталогу
+        Add an ingredient from the catalog
       </label>
       <input
         id="food-search"
         type="search"
         className="input mt-1"
-        placeholder="Почніть вводити назву продукту (мін. 2 символи)"
+        placeholder="Start typing a food name (min. 2 characters)"
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />
       {debounced.length >= 2 && (
         <div className="mt-2">
           {foods.isPending ? (
-            <p className="text-sm text-stone-500">Шукаємо…</p>
+            <p className="text-sm text-stone-500">Searching…</p>
           ) : foods.isError ? (
             <ErrorAlert error={foods.error} onRetry={() => void foods.refetch()} />
           ) : foods.data.items.length === 0 ? (
             <p className="text-sm text-stone-500">
-              Нічого не знайдено. Спершу додайте продукт у каталог.
+              Nothing found. Add the food to the catalog first.
             </p>
           ) : (
             <ul
-              aria-label="Результати пошуку"
+              aria-label="Search results"
               className="divide-y divide-stone-200 rounded-md border border-stone-200 bg-white"
             >
               {foods.data.items.map((food) => (
@@ -49,19 +49,19 @@ export function FoodPicker({ onPick }: { onPick: (food: FoodItem) => void }) {
                   <span>
                     <span className="font-medium">{food.name}</span>{' '}
                     <span className="text-xs text-stone-500">
-                      ({FOOD_STATE_LABELS[food.state]}) · {formatNumber(food.kcalPer100g)} ккал/100
-                      г
+                      ({FOOD_STATE_LABELS[food.state]}) · {formatNumber(food.kcalPer100g)} kcal/100
+                      g
                     </span>
                   </span>
                   <Button
                     variant="secondary"
-                    aria-label={`Додати ${food.name}`}
+                    aria-label={`Add ${food.name}`}
                     onClick={() => {
                       onPick(food);
                       setSearch('');
                     }}
                   >
-                    Додати
+                    Add
                   </Button>
                 </li>
               ))}

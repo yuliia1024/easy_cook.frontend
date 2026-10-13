@@ -10,19 +10,19 @@ const nutrient = (max: number) =>
     .transform(parseOptionalNumber)
     .pipe(
       z
-        .number({ error: 'Введіть число' })
-        .min(0, 'Не менше 0')
-        .max(max, `Не більше ${max}`)
-        .refine((value) => hasMaxDecimals(value, 2), 'Не більше двох знаків після коми')
+        .number({ error: 'Enter a number' })
+        .min(0, 'At least 0')
+        .max(max, `At most ${max}`)
+        .refine((value) => hasMaxDecimals(value, 2), 'At most two decimal places')
         .nullable(),
     );
 
 export const foodFormSchema = z
   .object({
-    name: z.string().trim().min(1, 'Вкажіть назву').max(255, 'Не довше 255 символів'),
-    nameEn: z.string().trim().max(255, 'Не довше 255 символів'),
+    name: z.string().trim().min(1, 'Enter a name').max(255, 'At most 255 characters'),
+    nameEn: z.string().trim().max(255, 'At most 255 characters'),
     state: z.enum(Object.keys(FOOD_STATE_LABELS) as [FoodState, ...FoodState[]], {
-      error: 'Оберіть стан',
+      error: 'Choose a state',
     }),
     kcalPer100g: nutrient(900),
     proteinG: nutrient(100),
@@ -30,7 +30,7 @@ export const foodFormSchema = z
     carbsG: nutrient(100),
   })
   .refine((food) => (food.proteinG ?? 0) + (food.fatG ?? 0) + (food.carbsG ?? 0) <= 100, {
-    message: 'Білки + жири + вуглеводи не можуть перевищувати 100 г на 100 г',
+    message: 'Protein + fat + carbs cannot exceed 100 g per 100 g',
     path: ['carbsG'],
   });
 

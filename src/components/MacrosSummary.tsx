@@ -11,7 +11,7 @@ interface Props {
   missing?: Macro[];
 }
 
-/** КБЖВ as four tiles. Null = unknown, shown as a dash. */
+/** Calories and macros as four tiles. Null = unknown, shown as a dash. */
 export function MacrosSummary({ values, caption, missing = [] }: Props) {
   return (
     <section aria-label={caption} className="rounded-lg border border-stone-200 bg-white p-4">
@@ -26,7 +26,7 @@ export function MacrosSummary({ values, caption, missing = [] }: Props) {
               {formatNumber(values[macro])}
               <span className="ml-1 text-sm font-normal text-stone-500">{MACRO_UNITS[macro]}</span>
               {missing.includes(macro) && (
-                <span className="ml-1 text-amber-600" title="Є інгредієнти з невідомим значенням">
+                <span className="ml-1 text-amber-600" title="Some ingredients have unknown values">
                   *
                 </span>
               )}

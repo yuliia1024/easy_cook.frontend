@@ -21,16 +21,16 @@ describe('FoodFormPage', () => {
     );
     const { user, router } = renderRoutes(routes, '/foods/new');
 
-    await user.type(screen.getByLabelText('Назва'), 'Рис варений');
-    await user.selectOptions(screen.getByLabelText('Стан'), 'boiled');
-    await user.type(screen.getByLabelText('Калорії, ккал'), '130');
-    await user.type(screen.getByLabelText('Білки, г'), '2,7');
-    await user.click(screen.getByRole('button', { name: 'Зберегти' }));
+    await user.type(screen.getByLabelText('Name'), 'Rice, boiled');
+    await user.selectOptions(screen.getByLabelText('State'), 'boiled');
+    await user.type(screen.getByLabelText('Calories, kcal'), '130');
+    await user.type(screen.getByLabelText('Protein, g'), '2,7');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText('details page')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/foods/new-id');
     expect(body).toEqual({
-      name: 'Рис варений',
+      name: 'Rice, boiled',
       nameEn: null,
       state: 'boiled',
       kcalPer100g: 130,
@@ -42,12 +42,12 @@ describe('FoodFormPage', () => {
 
   it('validates before sending', async () => {
     const { user } = renderRoutes(routes, '/foods/new');
-    await user.type(screen.getByLabelText('Калорії, ккал'), '1000');
-    await user.click(screen.getByRole('button', { name: 'Зберегти' }));
+    await user.type(screen.getByLabelText('Calories, kcal'), '1000');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(await screen.findByText('Вкажіть назву')).toBeInTheDocument();
-    expect(screen.getByText('Не більше 900')).toBeInTheDocument();
-    expect(screen.getByLabelText('Калорії, ккал')).toHaveAttribute('aria-invalid', 'true');
+    expect(await screen.findByText('Enter a name')).toBeInTheDocument();
+    expect(screen.getByText('At most 900')).toBeInTheDocument();
+    expect(screen.getByLabelText('Calories, kcal')).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('edits an existing food and shows server errors', async () => {
@@ -62,12 +62,12 @@ describe('FoodFormPage', () => {
     );
     const { user } = renderRoutes(routes, `/foods/${food.id}/edit`);
 
-    const name = await screen.findByLabelText('Назва');
-    expect(name).toHaveValue('Гречка суха');
-    await user.clear(screen.getByLabelText('Жири, г'));
-    await user.click(screen.getByRole('button', { name: 'Зберегти' }));
+    const name = await screen.findByLabelText('Name');
+    expect(name).toHaveValue('Buckwheat, dry');
+    await user.clear(screen.getByLabelText('Fat, g'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Не вдалося зберегти продукт');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save the food');
     expect(body).toMatchObject({ fatG: null, kcalPer100g: 343 });
   });
 });

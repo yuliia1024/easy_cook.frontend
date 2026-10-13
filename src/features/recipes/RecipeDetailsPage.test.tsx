@@ -11,20 +11,20 @@ const routes = [
 ];
 
 describe('RecipeDetailsPage', () => {
-  it('shows КБЖВ for the whole recipe, per serving and per ingredient', async () => {
+  it('shows calories and macros for the whole recipe, per serving and per ingredient', async () => {
     server.use(
       http.get(api(`/recipes/${recipe.id}`), () => HttpResponse.json(recipe)),
       http.get(api(`/recipes/${recipe.id}/nutrition`), () => HttpResponse.json(buildNutrition())),
     );
     renderRoutes(routes, `/recipes/${recipe.id}`);
 
-    const perServing = await screen.findByRole('region', { name: 'На порцію' });
-    expect(within(perServing).getByText('257,3')).toBeInTheDocument();
-    const total = screen.getByRole('region', { name: 'На весь рецепт (2 порц.)' });
-    expect(within(total).getByText('514,5')).toBeInTheDocument();
-    const row = screen.getByRole('link', { name: 'Гречка суха' }).closest('tr')!;
+    const perServing = await screen.findByRole('region', { name: 'Per serving' });
+    expect(within(perServing).getByText('257.3')).toBeInTheDocument();
+    const total = screen.getByRole('region', { name: 'Whole recipe (2 serv.)' });
+    expect(within(total).getByText('514.5')).toBeInTheDocument();
+    const row = screen.getByRole('link', { name: 'Buckwheat, dry' }).closest('tr')!;
     expect(row).toHaveTextContent('150');
-    expect(screen.getByText('Зварити гречку.')).toBeInTheDocument();
+    expect(screen.getByText('Boil the buckwheat.')).toBeInTheDocument();
   });
 
   it('recalculates with optional ingredients and marks missing values', async () => {
@@ -42,8 +42,8 @@ describe('RecipeDetailsPage', () => {
     );
     const { user } = renderRoutes(routes, `/recipes/${recipe.id}`);
 
-    await user.click(await screen.findByLabelText("Враховувати необов'язкові інгредієнти"));
-    expect(await screen.findByText(/Неповні дані/)).toBeInTheDocument();
+    await user.click(await screen.findByLabelText('Include optional ingredients'));
+    expect(await screen.findByText(/Incomplete data/)).toBeInTheDocument();
     expect(requested).toEqual(['false', 'true']);
   });
 
@@ -56,7 +56,7 @@ describe('RecipeDetailsPage', () => {
     );
     const { user } = renderRoutes(routes, `/recipes/${recipe.id}`);
 
-    await user.click(await screen.findByRole('button', { name: 'Видалити' }));
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
     expect(await screen.findByText('recipes list')).toBeInTheDocument();
   });
 

@@ -2,7 +2,7 @@ import { buildFood } from '../../test/fixtures';
 import { foodFormSchema, toFoodFormValues, toFoodInput } from './food-form.schema';
 
 const valid = {
-  name: 'Рис',
+  name: 'Rice',
   nameEn: '',
   state: 'dried',
   kcalPer100g: '360',

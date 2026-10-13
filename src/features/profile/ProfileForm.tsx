@@ -14,15 +14,15 @@ import {
 } from './profile.schemas';
 
 const NUMBER_FIELDS = [
-  { name: 'age', label: 'Вік, років', inputMode: 'numeric' },
-  { name: 'heightCm', label: 'Зріст, см', inputMode: 'decimal' },
-  { name: 'weightKg', label: 'Вага, кг', inputMode: 'decimal' },
+  { name: 'age', label: 'Age, years', inputMode: 'numeric' },
+  { name: 'heightCm', label: 'Height, cm', inputMode: 'decimal' },
+  { name: 'weightKg', label: 'Weight, kg', inputMode: 'decimal' },
 ] as const;
 
 const SELECT_FIELDS = [
-  { name: 'sex', label: 'Стать (для формули)', options: toOptions(SEX_LABELS) },
-  { name: 'activityLevel', label: 'Рівень активності', options: toOptions(ACTIVITY_LEVEL_LABELS) },
-  { name: 'goal', label: 'Мета', options: toOptions(GOAL_LABELS) },
+  { name: 'sex', label: 'Sex (for the formula)', options: toOptions(SEX_LABELS) },
+  { name: 'activityLevel', label: 'Activity level', options: toOptions(ACTIVITY_LEVEL_LABELS) },
+  { name: 'goal', label: 'Goal', options: toOptions(GOAL_LABELS) },
 ] as const;
 
 export function ProfileForm({ profile }: { profile: Profile | null }) {
@@ -73,14 +73,14 @@ export function ProfileForm({ profile }: { profile: Profile | null }) {
           </Field>
         ))}
       </div>
-      {save.isError && <ErrorAlert error={save.error} title="Не вдалося зберегти профіль" />}
+      {save.isError && <ErrorAlert error={save.error} title="Could not save the profile" />}
       {save.isSuccess && !isDirty && (
         <p role="status" className="text-sm text-green-700">
-          Профіль збережено.
+          Profile saved.
         </p>
       )}
       <Button type="submit" loading={save.isPending}>
-        {profile ? 'Зберегти профіль' : 'Створити профіль'}
+        {profile ? 'Save profile' : 'Create profile'}
       </Button>
     </form>
   );

@@ -9,10 +9,10 @@ describe('FoodsPage', () => {
     server.use(http.get(api('/foods'), () => HttpResponse.json(page([buildFood({ fatG: null })]))));
     renderPage(<FoodsPage />, '/foods', '/foods');
 
-    const row = (await screen.findByRole('link', { name: 'Гречка суха' })).closest('tr')!;
+    const row = (await screen.findByRole('link', { name: 'Buckwheat, dry' })).closest('tr')!;
     expect(within(row).getByText('343')).toBeInTheDocument();
     expect(within(row).getByText('—')).toBeInTheDocument();
-    expect(within(row).getByText('сухий')).toBeInTheDocument();
+    expect(within(row).getByText('dry')).toBeInTheDocument();
   });
 
   it('searches and filters through the query string', async () => {
@@ -24,14 +24,14 @@ describe('FoodsPage', () => {
       }),
     );
     const { user } = renderPage(<FoodsPage />, '/foods', '/foods');
-    await screen.findByText('Гречка суха');
+    await screen.findByText('Buckwheat, dry');
 
-    await user.type(screen.getByRole('searchbox', { name: 'Пошук продуктів' }), 'рис');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Стан' }), 'boiled');
+    await user.type(screen.getByRole('searchbox', { name: 'Search foods' }), 'rice');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'State' }), 'boiled');
 
     await vi.waitFor(() => {
       const last = queries.at(-1)!;
-      expect(last.get('search')).toBe('рис');
+      expect(last.get('search')).toBe('rice');
       expect(last.get('state')).toBe('boiled');
     });
   });
@@ -39,7 +39,7 @@ describe('FoodsPage', () => {
   it('shows an empty state', async () => {
     server.use(http.get(api('/foods'), () => HttpResponse.json(page([]))));
     renderPage(<FoodsPage />, '/foods', '/foods');
-    expect(await screen.findByText('Нічого не знайдено')).toBeInTheDocument();
+    expect(await screen.findByText('Nothing found')).toBeInTheDocument();
   });
 
   it('shows an error and retries', async () => {
@@ -55,8 +55,8 @@ describe('FoodsPage', () => {
     const { user } = renderPage(<FoodsPage />, '/foods', '/foods');
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Database is unavailable');
-    await user.click(screen.getByRole('button', { name: 'Спробувати ще раз' }));
-    expect(await screen.findByText('Гречка суха')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Buckwheat, dry')).toBeInTheDocument();
   });
 
   it('paginates', async () => {
@@ -64,13 +64,13 @@ describe('FoodsPage', () => {
       http.get(api('/foods'), ({ request }) => {
         const pageNo = Number(new URL(request.url).searchParams.get('page'));
         return HttpResponse.json(
-          page([buildFood({ name: `Продукт ${pageNo}` })], { total: 45, page: pageNo }),
+          page([buildFood({ name: `Food ${pageNo}` })], { total: 45, page: pageNo }),
         );
       }),
     );
     const { user } = renderPage(<FoodsPage />, '/foods', '/foods');
-    expect(await screen.findByText('Сторінка 1 з 3 · 45 записів')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Далі' }));
-    expect(await screen.findByText('Продукт 2')).toBeInTheDocument();
+    expect(await screen.findByText('Page 1 of 3 · 45 records')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('Food 2')).toBeInTheDocument();
   });
 });

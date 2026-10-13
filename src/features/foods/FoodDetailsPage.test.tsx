@@ -7,14 +7,14 @@ import { FoodDetailsPage } from './FoodDetailsPage';
 const food = buildFood({ carbsG: null });
 
 describe('FoodDetailsPage', () => {
-  it('shows КБЖВ per 100 g and warns about unknown values', async () => {
+  it('shows calories and macros per 100 g and warns about unknown values', async () => {
     server.use(http.get(api(`/foods/${food.id}`), () => HttpResponse.json(food)));
     renderPage(<FoodDetailsPage />, `/foods/${food.id}`, '/foods/:id');
 
-    expect(await screen.findByRole('heading', { name: 'Гречка суха' })).toBeInTheDocument();
-    expect(screen.getByText('13,3')).toBeInTheDocument();
-    expect(screen.getByText(/Деякі значення невідомі/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Редагувати' })).toHaveAttribute(
+    expect(await screen.findByRole('heading', { name: 'Buckwheat, dry' })).toBeInTheDocument();
+    expect(screen.getByText('13.3')).toBeInTheDocument();
+    expect(screen.getByText(/Some values are unknown/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Edit' })).toHaveAttribute(
       'href',
       `/foods/${food.id}/edit`,
     );

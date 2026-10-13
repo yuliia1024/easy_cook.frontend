@@ -76,21 +76,21 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
         to={recipe ? `/recipes/${recipe.id}` : '/recipes'}
         className="text-sm text-stone-600 hover:underline"
       >
-        ← Назад
+        ← Back
       </Link>
-      <PageHeader title={recipe ? `Редагування: ${recipe.name}` : 'Новий рецепт'} />
+      <PageHeader title={recipe ? `Edit: ${recipe.name}` : 'New recipe'} />
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label="Назва"
+            label="Name"
             htmlFor="name"
             error={errors.name?.message}
             className="sm:col-span-2"
           >
             <input className="input" {...a11y('name', errors.name)} {...register('name')} />
           </Field>
-          <Field label="Прийом їжі" htmlFor="mealType" error={errors.mealType?.message}>
+          <Field label="Meal type" htmlFor="mealType" error={errors.mealType?.message}>
             <select
               className="input"
               {...a11y('mealType', errors.mealType)}
@@ -104,7 +104,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
             </select>
           </Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Порцій" htmlFor="servings" error={errors.servings?.message}>
+            <Field label="Servings" htmlFor="servings" error={errors.servings?.message}>
               <input
                 className="input"
                 inputMode="numeric"
@@ -113,7 +113,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
               />
             </Field>
             <Field
-              label="Час, хв"
+              label="Time, min"
               htmlFor="prepTimeMinutes"
               error={errors.prepTimeMinutes?.message}
             >
@@ -126,7 +126,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
             </Field>
           </div>
           <fieldset className="sm:col-span-2">
-            <legend className="text-sm font-medium text-stone-700">Тип харчування</legend>
+            <legend className="text-sm font-medium text-stone-700">Diet</legend>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
               {toOptions(DIET_TAG_LABELS).map((option) => (
                 <label key={option.value} className="flex items-center gap-1.5 text-sm">
@@ -136,7 +136,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
               ))}
             </div>
           </fieldset>
-          <Field label="Опис" htmlFor="description" hint="Необов'язково" className="sm:col-span-2">
+          <Field label="Description" htmlFor="description" hint="Optional" className="sm:col-span-2">
             <textarea
               className="input"
               rows={2}
@@ -145,7 +145,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
             />
           </Field>
           <Field
-            label="Приготування"
+            label="Instructions"
             htmlFor="instructions"
             error={errors.instructions?.message}
             className="sm:col-span-2"
@@ -161,13 +161,13 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
 
         <section aria-labelledby="ingredients-heading" className="space-y-3">
           <h2 id="ingredients-heading" className="text-lg font-semibold">
-            Інгредієнти
+            Ingredients
           </h2>
           <p className="text-xs text-stone-500">
-            Вага — на весь рецепт, у стані обраного продукту (150 г сухого рису ≠ 150 г вареного).
+            Weight is for the whole recipe, in the state of the chosen food (150 g of dry rice ≠ 150 g of boiled).
           </p>
           {ingredients.fields.length === 0 ? (
-            <p className="text-sm text-stone-500">Ще немає інгредієнтів.</p>
+            <p className="text-sm text-stone-500">No ingredients yet.</p>
           ) : (
             <ol className="space-y-2">
               {ingredients.fields.map((item, index) => {
@@ -185,12 +185,12 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
                       </span>
                       <label className="mt-1 flex items-center gap-1.5 text-xs text-stone-600">
                         <input type="checkbox" {...register(`ingredients.${index}.isOptional`)} />
-                        необов'язковий
+                        optional
                       </label>
                     </div>
                     <div>
                       <label htmlFor={`ingredients.${index}.quantityG`} className="sr-only">
-                        Вага {food.name}, г
+                        Weight of {food.name}, g
                       </label>
                       <div className="flex items-center gap-1">
                         <input
@@ -199,7 +199,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
                           {...a11y(`ingredients.${index}.quantityG`, error?.quantityG)}
                           {...register(`ingredients.${index}.quantityG`)}
                         />
-                        <span className="text-sm text-stone-500">г</span>
+                        <span className="text-sm text-stone-500">g</span>
                       </div>
                       {error?.quantityG && (
                         <p
@@ -212,11 +212,11 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
                     </div>
                     <div>
                       <label htmlFor={`ingredients.${index}.notes`} className="sr-only">
-                        Примітка до {food.name}
+                        Note for {food.name}
                       </label>
                       <input
                         className="input"
-                        placeholder="Примітка"
+                        placeholder="Note"
                         {...a11y(`ingredients.${index}.notes`, error?.notes)}
                         {...register(`ingredients.${index}.notes`)}
                       />
@@ -224,7 +224,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
                     <div className="flex gap-1">
                       <Button
                         variant="ghost"
-                        aria-label={`Вгору: ${food.name}`}
+                        aria-label={`Move up: ${food.name}`}
                         disabled={index === 0}
                         onClick={() => ingredients.move(index, index - 1)}
                       >
@@ -232,7 +232,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
                       </Button>
                       <Button
                         variant="ghost"
-                        aria-label={`Вниз: ${food.name}`}
+                        aria-label={`Move down: ${food.name}`}
                         disabled={index === ingredients.fields.length - 1}
                         onClick={() => ingredients.move(index, index + 1)}
                       >
@@ -240,7 +240,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
                       </Button>
                       <Button
                         variant="ghost"
-                        aria-label={`Прибрати ${food.name}`}
+                        aria-label={`Remove ${food.name}`}
                         onClick={() => ingredients.remove(index)}
                       >
                         ✕
@@ -266,35 +266,35 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
 
         <section aria-labelledby="estimate-heading" className="space-y-3">
           <h2 id="estimate-heading" className="text-lg font-semibold">
-            КБЖВ (попередній розрахунок)
+            Calories and macros (preview)
           </h2>
           <div className="grid gap-4 lg:grid-cols-2">
             <MacrosSummary
-              caption="На порцію"
+              caption="Per serving"
               values={estimate.perServing}
               missing={estimate.missing}
             />
             <MacrosSummary
-              caption="На весь рецепт"
+              caption="Whole recipe"
               values={estimate.total}
               missing={estimate.missing}
             />
           </div>
           {estimate.missing.length > 0 && (
             <p className="text-sm text-amber-700">
-              * Деякі значення інгредієнтів невідомі й рахуються як 0.
+              * Some ingredient values are unknown and counted as 0.
             </p>
           )}
         </section>
 
-        {save.isError && <ErrorAlert error={save.error} title="Не вдалося зберегти рецепт" />}
+        {save.isError && <ErrorAlert error={save.error} title="Could not save the recipe" />}
 
         <div className="flex gap-2">
           <Button type="submit" loading={save.isPending}>
-            Зберегти
+            Save
           </Button>
           <Button variant="ghost" onClick={() => navigate(-1)}>
-            Скасувати
+            Cancel
           </Button>
         </div>
       </form>

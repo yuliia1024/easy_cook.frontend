@@ -64,7 +64,7 @@ export async function request<T>(
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     });
   } catch {
-    throw new ApiError(0, 'Сервер недоступний. Перевірте, що API запущено.');
+    throw new ApiError(0, 'The server is unavailable. Check that the API is running.');
   }
 
   if (!response.ok) throw await toApiError(response);

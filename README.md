@@ -1,10 +1,10 @@
 # Easy Cook web app
 
-UI for the Easy Cook backend (`../easy_cook.backend`): food catalog, recipe catalog with КБЖВ per
+UI for the Easy Cook backend (`../easy_cook.backend`): food catalog, recipe catalog with calories and macros per
 recipe and per serving, profile and daily nutrition goals. Single user, no auth.
 
 Vite 8 · React 19 · TypeScript 6 · React Router 7 · TanStack Query 5 · react-hook-form + zod 4 ·
-Tailwind CSS 4 · Vitest + Testing Library + MSW. UI language: Ukrainian.
+Tailwind CSS 4 · Vitest + Testing Library + MSW. UI language: English.
 
 ## Run
 
@@ -24,11 +24,11 @@ database and seed). The dev server proxies `/api` to `API_PROXY_TARGET`
 
 | Path | |
 |---|---|
-| `/foods` | search (Ukrainian or English name), filter by state and source, КБЖВ per 100 g |
+| `/foods` | search by name, filter by state and source, calories and macros per 100 g |
 | `/foods/:id`, `/foods/new`, `/foods/:id/edit` | details and form; an empty value is *unknown* (`null`), not 0 |
-| `/recipes` | search, meal type, diet tags (all must match), КБЖВ per serving |
-| `/recipes/:id` | КБЖВ per serving, for the whole recipe and per ingredient; optional ingredients on demand |
-| `/recipes/new`, `/recipes/:id/edit` | form, ingredients picked from the food catalog, live КБЖВ preview |
+| `/recipes` | search, meal type, diet tags (all must match), calories and macros per serving |
+| `/recipes/:id` | calories and macros per serving, for the whole recipe and per ingredient; optional ingredients on demand |
+| `/recipes/new`, `/recipes/:id/edit` | form, ingredients picked from the food catalog, live calories and macros preview |
 | `/profile` | profile, current goal, rule based preview + save, manual goal, goal history |
 
 Nutrition rules worth knowing:
@@ -47,7 +47,7 @@ src/
   app/          routes (lazy per page), query client
   components/   shared UI: Button, Field, MacrosSummary, ErrorAlert, Spinner, Pagination...
   features/     foods/, recipes/, profile/ - pages, `*.queries.ts` (TanStack Query), form schemas
-  lib/          labels (enum -> Ukrainian), formatting, nutrition estimate, error messages
+  lib/          labels (enum -> English), formatting, nutrition estimate, error messages
   test/         MSW server, fixtures, render helpers
 ```
 

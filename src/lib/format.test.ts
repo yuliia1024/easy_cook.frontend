@@ -7,8 +7,8 @@ describe('formatNumber', () => {
     expect(formatNumber(0)).toBe('0');
   });
 
-  it('keeps one decimal with the Ukrainian separator', () => {
-    expect(formatNumber(12.345)).toBe('12,3');
+  it('keeps one decimal with a dot as the separator', () => {
+    expect(formatNumber(12.345)).toBe('12.3');
   });
 });
 

@@ -29,40 +29,40 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
   const hasOptional = recipe.ingredients.some((ingredient) => ingredient.isOptional);
 
   const onDelete = (): void => {
-    if (!window.confirm(`Видалити рецепт «${recipe.name}»?`)) return;
+    if (!window.confirm(`Delete the recipe “${recipe.name}”?`)) return;
     remove.mutate(recipe.id, { onSuccess: () => navigate('/recipes') });
   };
 
   return (
     <>
       <Link to="/recipes" className="text-sm text-stone-600 hover:underline">
-        ← Усі рецепти
+        ← All recipes
       </Link>
       <PageHeader
         title={recipe.name}
         actions={
           <>
             <Link to={`/recipes/${recipe.id}/edit`} className={buttonClass('secondary')}>
-              Редагувати
+              Edit
             </Link>
             <Button variant="danger" onClick={onDelete} loading={remove.isPending}>
-              Видалити
+              Delete
             </Button>
           </>
         }
       >
-        {MEAL_TYPE_LABELS[recipe.mealType]} · {recipe.servings} порц.
-        {recipe.prepTimeMinutes !== null && ` · ${recipe.prepTimeMinutes} хв`}
+        {MEAL_TYPE_LABELS[recipe.mealType]} · {recipe.servings} serv.
+        {recipe.prepTimeMinutes !== null && ` · ${recipe.prepTimeMinutes} min`}
         {recipe.dietType.length > 0 &&
           ` · ${recipe.dietType.map((tag) => DIET_TAG_LABELS[tag]).join(', ')}`}
       </PageHeader>
-      {remove.isError && <ErrorAlert error={remove.error} title="Не вдалося видалити рецепт" />}
+      {remove.isError && <ErrorAlert error={remove.error} title="Could not delete the recipe" />}
       {recipe.description && <p className="mb-6 text-stone-700">{recipe.description}</p>}
 
       <section aria-labelledby="nutrition-heading" className="mb-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 id="nutrition-heading" className="text-lg font-semibold">
-            КБЖВ
+            Calories and macros
           </h2>
           {hasOptional && (
             <label className="flex items-center gap-2 text-sm">
@@ -71,46 +71,46 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
                 checked={includeOptional}
                 onChange={(event) => setIncludeOptional(event.target.checked)}
               />
-              Враховувати необов'язкові інгредієнти
+              Include optional ingredients
             </label>
           )}
         </div>
 
         {nutrition.isPending ? (
-          <Spinner label="Рахуємо КБЖВ…" />
+          <Spinner label="Calculating nutrition…" />
         ) : nutrition.isError ? (
           <ErrorAlert error={nutrition.error} onRetry={() => void nutrition.refetch()} />
         ) : (
           <div className={nutrition.isPlaceholderData ? 'opacity-60' : ''}>
             <div className="grid gap-4 lg:grid-cols-2">
-              <MacrosSummary caption="На порцію" values={nutrition.data.perServing} />
+              <MacrosSummary caption="Per serving" values={nutrition.data.perServing} />
               <MacrosSummary
-                caption={`На весь рецепт (${recipe.servings} порц.)`}
+                caption={`Whole recipe (${recipe.servings} serv.)`}
                 values={nutrition.data.total}
               />
             </div>
             {!nutrition.data.complete && (
               <p className="mt-2 text-sm text-amber-700">
-                Неповні дані: у деяких інгредієнтів невідомі значення (позначені *), вони рахуються
-                як 0.
+                Incomplete data: some ingredients have unknown values (marked *), they are counted
+                as 0.
               </p>
             )}
             <p className="mt-2 text-xs text-stone-500">
-              Сума інгредієнтів у вказаному стані; втрати води та олії під час готування не
-              враховано.
+              Sum of the ingredients in their given state; water and oil losses during cooking are not
+              taken into account.
             </p>
 
             <div className="mt-4 overflow-x-auto rounded-lg border border-stone-200 bg-white">
               <table className="w-full text-sm">
-                <caption className="sr-only">Інгредієнти та їхній внесок у КБЖВ</caption>
+                <caption className="sr-only">Ingredients and their contribution to calories and macros</caption>
                 <thead className="bg-stone-100 text-left text-xs uppercase tracking-wide text-stone-600">
                   <tr>
-                    <th className="px-3 py-2">Інгредієнт</th>
-                    <th className="px-3 py-2 text-right">Вага, г</th>
-                    <th className="px-3 py-2 text-right">Ккал</th>
-                    <th className="px-3 py-2 text-right">Б</th>
-                    <th className="px-3 py-2 text-right">Ж</th>
-                    <th className="px-3 py-2 text-right">В</th>
+                    <th className="px-3 py-2">Ingredient</th>
+                    <th className="px-3 py-2 text-right">Weight, g</th>
+                    <th className="px-3 py-2 text-right">Kcal</th>
+                    <th className="px-3 py-2 text-right">P</th>
+                    <th className="px-3 py-2 text-right">F</th>
+                    <th className="px-3 py-2 text-right">C</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
@@ -133,7 +133,7 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
                           <span className="text-xs text-stone-500">
                             ({FOOD_STATE_LABELS[line.state]})
                           </span>
-                          {line.isOptional && <span className="ml-1 text-xs">· необов'язково</span>}
+                          {line.isOptional && <span className="ml-1 text-xs">· optional</span>}
                           {notes && <div className="text-xs text-stone-500">{notes}</div>}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
@@ -155,7 +155,7 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
 
       <section aria-labelledby="instructions-heading">
         <h2 id="instructions-heading" className="mb-2 text-lg font-semibold">
-          Приготування
+          Instructions
         </h2>
         <p className="whitespace-pre-line text-stone-800">{recipe.instructions}</p>
       </section>

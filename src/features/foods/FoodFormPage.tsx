@@ -18,10 +18,10 @@ import {
 import { useFood, useSaveFood } from './foods.queries';
 
 const NUTRIENT_FIELDS = [
-  { name: 'kcalPer100g', label: 'Калорії, ккал' },
-  { name: 'proteinG', label: 'Білки, г' },
-  { name: 'fatG', label: 'Жири, г' },
-  { name: 'carbsG', label: 'Вуглеводи, г' },
+  { name: 'kcalPer100g', label: 'Calories, kcal' },
+  { name: 'proteinG', label: 'Protein, g' },
+  { name: 'fatG', label: 'Fat, g' },
+  { name: 'carbsG', label: 'Carbs, g' },
 ] as const;
 
 /** `/foods/new` and `/foods/:id/edit`. */
@@ -64,28 +64,28 @@ function FoodForm({ food }: { food?: FoodItem }) {
         to={food ? `/foods/${food.id}` : '/foods'}
         className="text-sm text-stone-600 hover:underline"
       >
-        ← Назад
+        ← Back
       </Link>
-      <PageHeader title={food ? `Редагування: ${food.name}` : 'Новий продукт'} />
+      <PageHeader title={food ? `Edit: ${food.name}` : 'New food'} />
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="max-w-2xl space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Назва" htmlFor="name" error={errors.name?.message}>
+          <Field label="Name" htmlFor="name" error={errors.name?.message}>
             <input className="input" {...field('name')} />
           </Field>
           <Field
-            label="Назва англійською"
+            label="English name"
             htmlFor="nameEn"
             error={errors.nameEn?.message}
-            hint="Необов'язково"
+            hint="Optional"
           >
             <input className="input" {...field('nameEn')} />
           </Field>
           <Field
-            label="Стан"
+            label="State"
             htmlFor="state"
             error={errors.state?.message}
-            hint="Значення описують 100 г саме в цьому стані: сухий і варений рис — різні продукти."
+            hint="Values describe 100 g in exactly this state: dry and boiled rice are different foods."
             className="sm:col-span-2"
           >
             <select className="input" {...field('state')}>
@@ -99,9 +99,9 @@ function FoodForm({ food }: { food?: FoodItem }) {
         </div>
 
         <fieldset className="rounded-lg border border-stone-200 bg-white p-4">
-          <legend className="px-1 text-sm font-medium">КБЖВ на 100 г</legend>
+          <legend className="px-1 text-sm font-medium">Calories and macros per 100 g</legend>
           <p className="mb-3 text-xs text-stone-500">
-            Залиште поле порожнім, якщо значення невідоме (не 0).
+            Leave a field empty if the value is unknown (not 0).
           </p>
           <div className="grid gap-4 sm:grid-cols-4">
             {NUTRIENT_FIELDS.map(({ name, label }) => (
@@ -112,14 +112,14 @@ function FoodForm({ food }: { food?: FoodItem }) {
           </div>
         </fieldset>
 
-        {save.isError && <ErrorAlert error={save.error} title="Не вдалося зберегти продукт" />}
+        {save.isError && <ErrorAlert error={save.error} title="Could not save the food" />}
 
         <div className="flex gap-2">
           <Button type="submit" loading={save.isPending}>
-            Зберегти
+            Save
           </Button>
           <Button variant="ghost" onClick={() => navigate(-1)}>
-            Скасувати
+            Cancel
           </Button>
         </div>
       </form>

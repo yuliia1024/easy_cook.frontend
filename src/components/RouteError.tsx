@@ -7,9 +7,9 @@ export function RouteError() {
   const error = useRouteError();
   return (
     <div className="mx-auto max-w-xl p-6">
-      <ErrorAlert error={error} title="Сторінка зламалася" />
+      <ErrorAlert error={error} title="Something broke on this page" />
       <Link to="/" className={`${buttonClass('secondary')} mt-4`}>
-        На головну
+        Go to home page
       </Link>
     </div>
   );

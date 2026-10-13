@@ -9,15 +9,15 @@ describe('routes', () => {
     server.use(http.get(api('/recipes'), () => HttpResponse.json(page([]))));
     const { router } = renderRoutes(routes, '/');
 
-    expect(await screen.findByRole('heading', { name: 'Рецепти' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Recipes' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/recipes');
-    const nav = screen.getByRole('navigation', { name: 'Основна навігація' });
-    expect(nav).toHaveTextContent('Продукти');
-    expect(nav).toHaveTextContent('Профіль і цілі');
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+    expect(nav).toHaveTextContent('Foods');
+    expect(nav).toHaveTextContent('Profile & goals');
   });
 
   it('shows a not found page', async () => {
     renderRoutes(routes, '/nowhere');
-    expect(await screen.findByText('Сторінку не знайдено')).toBeInTheDocument();
+    expect(await screen.findByText('Page not found')).toBeInTheDocument();
   });
 });

@@ -39,32 +39,32 @@ export function FoodsPage() {
   return (
     <>
       <PageHeader
-        title="Продукти"
+        title="Foods"
         actions={
           <Link to="/foods/new" className={buttonClass()}>
-            Додати продукт
+            Add food
           </Link>
         }
       >
-        КБЖВ на 100 г продукту в зазначеному стані. «—» означає, що значення невідоме.
+        Calories and macros per 100 g of the food in the given state. “—” means the value is unknown.
       </PageHeader>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
         <input
           type="search"
           className="input"
-          placeholder="Пошук за назвою (укр. або англ.)"
-          aria-label="Пошук продуктів"
+          placeholder="Search by name"
+          aria-label="Search foods"
           value={search}
           onChange={(event) => setParam('search', event.target.value)}
         />
         <select
           className="input"
-          aria-label="Стан"
+          aria-label="State"
           value={state ?? ''}
           onChange={(event) => setParam('state', event.target.value)}
         >
-          <option value="">Усі стани</option>
+          <option value="">All states</option>
           {toOptions(FOOD_STATE_LABELS).map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -73,11 +73,11 @@ export function FoodsPage() {
         </select>
         <select
           className="input"
-          aria-label="Джерело"
+          aria-label="Source"
           value={source ?? ''}
           onChange={(event) => setParam('source', event.target.value)}
         >
-          <option value="">Усі джерела</option>
+          <option value="">All sources</option>
           {toOptions(FOOD_SOURCE_LABELS).map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -91,7 +91,7 @@ export function FoodsPage() {
       ) : foods.isError ? (
         <ErrorAlert error={foods.error} onRetry={() => void foods.refetch()} />
       ) : foods.data.items.length === 0 ? (
-        <EmptyState title="Нічого не знайдено">Змініть пошук або додайте продукт.</EmptyState>
+        <EmptyState title="Nothing found">Change the search or add a food.</EmptyState>
       ) : (
         <>
           <div
@@ -100,13 +100,13 @@ export function FoodsPage() {
             <table className="w-full text-sm">
               <thead className="bg-stone-100 text-left text-xs uppercase tracking-wide text-stone-600">
                 <tr>
-                  <th className="px-3 py-2">Назва</th>
-                  <th className="px-3 py-2">Стан</th>
-                  <th className="px-3 py-2 text-right">Ккал</th>
-                  <th className="px-3 py-2 text-right">Б, г</th>
-                  <th className="px-3 py-2 text-right">Ж, г</th>
-                  <th className="px-3 py-2 text-right">В, г</th>
-                  <th className="px-3 py-2">Джерело</th>
+                  <th className="px-3 py-2">Name</th>
+                  <th className="px-3 py-2">State</th>
+                  <th className="px-3 py-2 text-right">Kcal</th>
+                  <th className="px-3 py-2 text-right">P, g</th>
+                  <th className="px-3 py-2 text-right">F, g</th>
+                  <th className="px-3 py-2 text-right">C, g</th>
+                  <th className="px-3 py-2">Source</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">

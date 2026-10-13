@@ -1,5 +1,5 @@
-const numberFormat = new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 1 });
-const dateFormat = new Intl.DateTimeFormat('uk-UA', { dateStyle: 'medium', timeStyle: 'short' });
+const numberFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 1 });
+const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
 /** A nutrient value; null is unknown and shown as a dash, never as 0. */
 export function formatNumber(value: number | null | undefined): string {

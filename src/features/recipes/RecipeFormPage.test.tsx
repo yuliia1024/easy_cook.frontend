@@ -12,7 +12,7 @@ const routes = [
 
 const rice = buildFood({
   id: '66666666-6666-4666-8666-666666666666',
-  name: 'Рис сухий',
+  name: 'Rice, dry',
   kcalPer100g: 360,
   proteinG: 7,
   fatG: null,
@@ -20,7 +20,7 @@ const rice = buildFood({
 });
 
 describe('RecipeFormPage', () => {
-  it('adds ingredients from the catalog, previews КБЖВ and creates the recipe', async () => {
+  it('adds ingredients from the catalog, previews calories and macros and creates the recipe', async () => {
     let body: unknown;
     server.use(
       http.get(api('/foods'), () => HttpResponse.json(page([rice]))),
@@ -31,30 +31,30 @@ describe('RecipeFormPage', () => {
     );
     const { user, router } = renderRoutes(routes, '/recipes/new');
 
-    await user.type(screen.getByLabelText('Назва'), 'Рис');
-    await user.type(screen.getByLabelText('Приготування'), 'Зварити.');
-    await user.clear(screen.getByLabelText('Порцій'));
-    await user.type(screen.getByLabelText('Порцій'), '3');
-    await user.click(screen.getByLabelText('веганське'));
+    await user.type(screen.getByLabelText('Name'), 'Rice');
+    await user.type(screen.getByLabelText('Instructions'), 'Boil.');
+    await user.clear(screen.getByLabelText('Servings'));
+    await user.type(screen.getByLabelText('Servings'), '3');
+    await user.click(screen.getByLabelText('vegan'));
 
-    await user.type(screen.getByLabelText('Додати інгредієнт з каталогу'), 'ри');
-    await user.click(await screen.findByRole('button', { name: 'Додати Рис сухий' }));
-    const quantity = screen.getByLabelText('Вага Рис сухий, г');
+    await user.type(screen.getByLabelText('Add an ingredient from the catalog'), 'ri');
+    await user.click(await screen.findByRole('button', { name: 'Add Rice, dry' }));
+    const quantity = screen.getByLabelText('Weight of Rice, dry, g');
     await user.clear(quantity);
     await user.type(quantity, '150');
 
-    const perServing = screen.getByRole('region', { name: 'На порцію' });
+    const perServing = screen.getByRole('region', { name: 'Per serving' });
     expect(within(perServing).getByText('180')).toBeInTheDocument();
-    expect(screen.getByText(/Деякі значення інгредієнтів невідомі/)).toBeInTheDocument();
+    expect(screen.getByText(/Some ingredient values are unknown/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Зберегти' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText('details page')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/recipes/new-recipe');
     expect(body).toEqual({
-      name: 'Рис',
+      name: 'Rice',
       description: null,
-      instructions: 'Зварити.',
+      instructions: 'Boil.',
       mealType: 'lunch',
       dietType: ['vegan'],
       servings: 3,
@@ -65,9 +65,9 @@ describe('RecipeFormPage', () => {
 
   it('requires at least one ingredient', async () => {
     const { user } = renderRoutes(routes, '/recipes/new');
-    await user.click(screen.getByRole('button', { name: 'Зберегти' }));
-    expect(await screen.findByText('Додайте хоча б один інгредієнт')).toBeInTheDocument();
-    expect(screen.getByText('Вкажіть назву')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Add at least one ingredient')).toBeInTheDocument();
+    expect(screen.getByText('Enter a name')).toBeInTheDocument();
   });
 
   it('edits a recipe: reorders, removes and replaces the ingredient list', async () => {
@@ -91,9 +91,9 @@ describe('RecipeFormPage', () => {
     );
     const { user } = renderRoutes(routes, `/recipes/${recipe.id}/edit`);
 
-    await user.click(await screen.findByRole('button', { name: 'Вгору: Рис сухий' }));
-    await user.click(screen.getByRole('button', { name: 'Прибрати Гречка суха' }));
-    await user.click(screen.getByRole('button', { name: 'Зберегти' }));
+    await user.click(await screen.findByRole('button', { name: 'Move up: Rice, dry' }));
+    await user.click(screen.getByRole('button', { name: 'Remove Buckwheat, dry' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText('details page')).toBeInTheDocument();
     expect(body?.ingredients.map((i) => i.foodItemId)).toEqual([rice.id]);
@@ -107,9 +107,9 @@ describe('RecipeFormPage', () => {
     );
     const { user } = renderRoutes(routes, `/recipes/${recipe.id}/edit`);
 
-    await user.click(await screen.findByRole('button', { name: 'Зберегти' }));
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Не вдалося зберегти рецепт');
+    expect(alert).toHaveTextContent('Could not save the recipe');
     expect(alert).toHaveTextContent('Food item not found: x');
   });
 });

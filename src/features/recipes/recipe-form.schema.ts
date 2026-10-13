@@ -13,13 +13,13 @@ const ingredientSchema = z.object({
     .transform(parseOptionalNumber)
     .pipe(
       z
-        .number({ error: 'Вкажіть вагу' })
-        .min(0.01, 'Більше 0')
-        .max(100_000, 'Забагато')
-        .refine((value) => hasMaxDecimals(value, 2), 'До двох знаків після коми'),
+        .number({ error: 'Enter a weight' })
+        .min(0.01, 'Must be greater than 0')
+        .max(100_000, 'Too much')
+        .refine((value) => hasMaxDecimals(value, 2), 'At most two decimal places'),
     ),
   isOptional: z.boolean(),
-  notes: z.string().trim().max(500, 'Не довше 500 символів'),
+  notes: z.string().trim().max(500, 'At most 500 characters'),
 });
 
 const optionalInt = (min: number, max: number) =>
@@ -28,25 +28,25 @@ const optionalInt = (min: number, max: number) =>
     .transform(parseOptionalNumber)
     .pipe(
       z
-        .number({ error: 'Введіть ціле число' })
-        .int('Ціле число')
-        .min(min, `Не менше ${min}`)
-        .max(max, `Не більше ${max}`)
+        .number({ error: 'Enter a whole number' })
+        .int('Must be a whole number')
+        .min(min, `At least ${min}`)
+        .max(max, `At most ${max}`)
         .nullable(),
     );
 
 export const recipeFormSchema = z.object({
-  name: z.string().trim().min(1, 'Вкажіть назву').max(255, 'Не довше 255 символів'),
+  name: z.string().trim().min(1, 'Enter a name').max(255, 'At most 255 characters'),
   description: z.string().trim(),
-  instructions: z.string().trim().min(1, 'Опишіть приготування'),
-  mealType: z.enum(keys(MEAL_TYPE_LABELS), { error: 'Оберіть прийом їжі' }),
+  instructions: z.string().trim().min(1, 'Describe the instructions'),
+  mealType: z.enum(keys(MEAL_TYPE_LABELS), { error: 'Choose a meal type' }),
   dietType: z.array(z.enum(keys(DIET_TAG_LABELS))),
-  servings: optionalInt(1, 100).pipe(z.number({ error: 'Вкажіть кількість порцій' })),
+  servings: optionalInt(1, 100).pipe(z.number({ error: 'Enter the number of servings' })),
   prepTimeMinutes: optionalInt(0, 24 * 60),
   ingredients: z
     .array(ingredientSchema)
-    .min(1, 'Додайте хоча б один інгредієнт')
-    .max(100, 'Не більше 100 інгредієнтів'),
+    .min(1, 'Add at least one ingredient')
+    .max(100, 'At most 100 ingredients'),
 });
 
 export type RecipeFormValues = z.input<typeof recipeFormSchema>;

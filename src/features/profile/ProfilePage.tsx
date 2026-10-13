@@ -30,8 +30,8 @@ export function ProfilePage() {
 
   return (
     <>
-      <PageHeader title="Профіль і цілі харчування">
-        Дані профілю використовуються для розрахунку денних орієнтирів КБЖВ.
+      <PageHeader title="Profile & nutrition goals">
+        Profile data is used to calculate daily calorie and macro targets.
       </PageHeader>
 
       <section
@@ -39,7 +39,7 @@ export function ProfilePage() {
         className="mb-10 rounded-lg border border-stone-200 bg-white p-5"
       >
         <h2 id="profile-heading" className="mb-4 text-lg font-semibold">
-          Профіль
+          Profile
         </h2>
         {profile.isPending ? (
           <Spinner />
@@ -49,7 +49,7 @@ export function ProfilePage() {
           <>
             {!profile.data && (
               <p className="mb-4 text-sm text-stone-600">
-                Профіль ще не заповнено. Без нього цілі не розрахувати.
+                The profile is not filled in yet. Goals cannot be calculated without it.
               </p>
             )}
             <ProfileForm key={profile.data?.updatedAt ?? 'new'} profile={profile.data} />
@@ -71,16 +71,16 @@ function GoalsSection() {
     <section aria-labelledby="goals-heading" className="space-y-6">
       <div>
         <h2 id="goals-heading" className="text-lg font-semibold">
-          Цілі харчування на день
+          Daily nutrition goals
         </h2>
         <p className="mt-1 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
-          Розраховані значення — орієнтири для планування меню, а не медичні призначення. За
-          наявності захворювань, вагітності чи спеціальних потреб радьтеся з лікарем або дієтологом.
+          Calculated values are guidelines for menu planning, not medical advice. If you have a
+          medical condition, are pregnant or have special needs, consult a doctor or dietitian.
         </p>
       </div>
 
       <div>
-        <h3 className="mb-2 text-sm font-medium text-stone-600">Поточна ціль</h3>
+        <h3 className="mb-2 text-sm font-medium text-stone-600">Current goal</h3>
         {current.isPending ? (
           <Spinner />
         ) : current.isError ? (
@@ -89,24 +89,24 @@ function GoalsSection() {
           <>
             <MacrosSummary values={toMacros(current.data)} />
             <p className="mt-2 text-xs text-stone-500">
-              Встановлено {CALCULATION_MODE_LABELS[current.data.calculationMode]}
-              {current.data.ruleVersion && ` (правила ${current.data.ruleVersion})`}, діє з{' '}
+              Set {CALCULATION_MODE_LABELS[current.data.calculationMode]}
+              {current.data.ruleVersion && ` (rules ${current.data.ruleVersion})`}, effective from{' '}
               {formatDate(current.data.effectiveFrom)}.
             </p>
           </>
         ) : (
-          <EmptyState title="Ціль ще не встановлено">
-            Розрахуйте її за профілем або задайте вручну.
+          <EmptyState title="No goal set yet">
+            Calculate it from the profile or set it manually.
           </EmptyState>
         )}
       </div>
 
       <div className="rounded-lg border border-stone-200 bg-white p-5">
-        <div role="group" aria-label="Режим цілі" className="mb-4 flex gap-2">
+        <div role="group" aria-label="Goal mode" className="mb-4 flex gap-2">
           {(
             [
-              ['rules', 'За формулою'],
-              ['manual', 'Вручну'],
+              ['rules', 'By formula'],
+              ['manual', 'Manual'],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -128,24 +128,24 @@ function GoalsSection() {
       </div>
 
       <div>
-        <h3 className="mb-2 text-sm font-medium text-stone-600">Історія цілей</h3>
+        <h3 className="mb-2 text-sm font-medium text-stone-600">Goal history</h3>
         {history.isPending ? (
           <Spinner />
         ) : history.isError ? (
           <ErrorAlert error={history.error} onRetry={() => void history.refetch()} />
         ) : history.data.length === 0 ? (
-          <p className="text-sm text-stone-500">Порожньо.</p>
+          <p className="text-sm text-stone-500">Empty.</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white">
             <table className="w-full text-sm">
               <thead className="bg-stone-100 text-left text-xs uppercase tracking-wide text-stone-600">
                 <tr>
-                  <th className="px-3 py-2">Діє з</th>
-                  <th className="px-3 py-2">Режим</th>
-                  <th className="px-3 py-2 text-right">Ккал</th>
-                  <th className="px-3 py-2 text-right">Б, г</th>
-                  <th className="px-3 py-2 text-right">Ж, г</th>
-                  <th className="px-3 py-2 text-right">В, г</th>
+                  <th className="px-3 py-2">Effective from</th>
+                  <th className="px-3 py-2">Mode</th>
+                  <th className="px-3 py-2 text-right">Kcal</th>
+                  <th className="px-3 py-2 text-right">P, g</th>
+                  <th className="px-3 py-2 text-right">F, g</th>
+                  <th className="px-3 py-2 text-right">C, g</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -186,23 +186,23 @@ function RuleBasedGoal() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-stone-600">
-        Базовий обмін — Mifflin-St Jeor, помножений на коефіцієнт активності; −15 % для схуднення,
-        +10 % для набору маси. Білок 1,6–2,0 г на кг ваги, жири 25 % калорій, вуглеводи — решта.
+        Basal metabolic rate (Mifflin-St Jeor) times the activity factor; −15% to lose weight,
+        +10% to gain muscle. Protein 1.6–2.0 g per kg of body weight, fat 25% of calories, carbs the rest.
       </p>
       {preview.isPending ? (
-        <Spinner label="Рахуємо…" />
+        <Spinner label="Calculating…" />
       ) : preview.isError ? (
         <ErrorAlert error={preview.error} onRetry={() => void preview.refetch()} />
       ) : (
-        <MacrosSummary caption="Розрахунок за поточним профілем" values={toMacros(preview.data)} />
+        <MacrosSummary caption="Calculated from the current profile" values={toMacros(preview.data)} />
       )}
-      {calculate.isError && <ErrorAlert error={calculate.error} title="Не вдалося зберегти ціль" />}
+      {calculate.isError && <ErrorAlert error={calculate.error} title="Could not save the goal" />}
       <Button
         onClick={() => calculate.mutate()}
         loading={calculate.isPending}
         disabled={!preview.data}
       >
-        Встановити як поточну ціль
+        Set as current goal
       </Button>
     </div>
   );

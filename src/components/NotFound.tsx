@@ -3,9 +3,9 @@ import { EmptyState } from './EmptyState';
 
 export function NotFound() {
   return (
-    <EmptyState title="Сторінку не знайдено">
+    <EmptyState title="Page not found">
       <Link to="/recipes" className="text-green-800 underline">
-        До рецептів
+        Back to recipes
       </Link>
     </EmptyState>
   );

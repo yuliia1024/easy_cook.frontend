@@ -53,22 +53,22 @@ export function RecipesPage() {
   return (
     <>
       <PageHeader
-        title="Рецепти"
+        title="Recipes"
         actions={
           <Link to="/recipes/new" className={buttonClass()}>
-            Додати рецепт
+            Add recipe
           </Link>
         }
       >
-        КБЖВ на порцію — сума інгредієнтів без необов'язкових.
+        Calories and macros per serving: the sum of the ingredients, excluding optional ones.
       </PageHeader>
 
       <div className="mb-3 grid gap-3 sm:grid-cols-[1fr_auto]">
         <input
           type="search"
           className="input"
-          placeholder="Пошук за назвою"
-          aria-label="Пошук рецептів"
+          placeholder="Search by name"
+          aria-label="Search recipes"
           value={search}
           onChange={(event) =>
             update((next) =>
@@ -78,7 +78,7 @@ export function RecipesPage() {
         />
         <select
           className="input"
-          aria-label="Прийом їжі"
+          aria-label="Meal type"
           value={mealType ?? ''}
           onChange={(event) =>
             update((next) =>
@@ -88,7 +88,7 @@ export function RecipesPage() {
             )
           }
         >
-          <option value="">Усі прийоми їжі</option>
+          <option value="">All meal types</option>
           {toOptions(MEAL_TYPE_LABELS).map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -96,7 +96,7 @@ export function RecipesPage() {
           ))}
         </select>
       </div>
-      <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Тип харчування">
+      <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Diet">
         {toOptions(DIET_TAG_LABELS).map((option) => {
           const active = dietType.includes(option.value);
           return (
@@ -118,7 +118,7 @@ export function RecipesPage() {
       ) : recipes.isError ? (
         <ErrorAlert error={recipes.error} onRetry={() => void recipes.refetch()} />
       ) : recipes.data.items.length === 0 ? (
-        <EmptyState title="Рецептів не знайдено">Змініть фільтри або додайте рецепт.</EmptyState>
+        <EmptyState title="No recipes found">Change the filters or add a recipe.</EmptyState>
       ) : (
         <>
           <ul
@@ -135,20 +135,20 @@ export function RecipesPage() {
                   </span>
                   <span className="mt-1 font-semibold">{recipe.name}</span>
                   <span className="mt-1 text-xs text-stone-500">
-                    {recipe.servings} порц.
-                    {recipe.prepTimeMinutes !== null && ` · ${recipe.prepTimeMinutes} хв`}
+                    {recipe.servings} serv.
+                    {recipe.prepTimeMinutes !== null && ` · ${recipe.prepTimeMinutes} min`}
                     {recipe.dietType.length > 0 &&
                       ` · ${recipe.dietType.map((t) => DIET_TAG_LABELS[t]).join(', ')}`}
                   </span>
                   <span className="mt-auto pt-3 text-sm tabular-nums text-stone-700">
-                    <strong>{formatNumber(recipe.nutritionPerServing.kcal)} ккал</strong> · Б{' '}
-                    {formatNumber(recipe.nutritionPerServing.proteinG)} · Ж{' '}
-                    {formatNumber(recipe.nutritionPerServing.fatG)} · В{' '}
+                    <strong>{formatNumber(recipe.nutritionPerServing.kcal)} kcal</strong> · P{' '}
+                    {formatNumber(recipe.nutritionPerServing.proteinG)} · F{' '}
+                    {formatNumber(recipe.nutritionPerServing.fatG)} · C{' '}
                     {formatNumber(recipe.nutritionPerServing.carbsG)}
                     {!recipe.nutritionComplete && (
                       <span
                         className="ml-1 text-amber-600"
-                        title="Є інгредієнти з невідомими значеннями"
+                        title="Some ingredients have unknown values"
                       >
                         *
                       </span>

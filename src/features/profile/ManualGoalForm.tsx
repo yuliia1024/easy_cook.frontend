@@ -16,10 +16,10 @@ import {
 } from './profile.schemas';
 
 const FIELDS = [
-  { name: 'caloriesKcal', label: 'Калорії, ккал' },
-  { name: 'proteinG', label: 'Білки, г' },
-  { name: 'fatG', label: 'Жири, г' },
-  { name: 'carbsG', label: 'Вуглеводи, г' },
+  { name: 'caloriesKcal', label: 'Calories, kcal' },
+  { name: 'proteinG', label: 'Protein, g' },
+  { name: 'fatG', label: 'Fat, g' },
+  { name: 'carbsG', label: 'Carbs, g' },
 ] as const;
 
 export function ManualGoalForm({
@@ -60,7 +60,7 @@ export function ManualGoalForm({
       onSubmit={handleSubmit(onSubmit)}
       noValidate
       className="space-y-4"
-      aria-label="Ручна ціль"
+      aria-label="Manual goal"
     >
       <div className="grid gap-4 sm:grid-cols-4">
         {FIELDS.map(({ name, label }) => (
@@ -78,14 +78,14 @@ export function ManualGoalForm({
       </div>
       {impliedKcal !== null && (
         <p className={`text-sm ${mismatch ? 'text-amber-700' : 'text-stone-500'}`}>
-          За макронутрієнтами (4/9/4 ккал/г): ≈ {impliedKcal} ккал
-          {mismatch && ' — помітно відрізняється від цілі за калоріями.'}
+          From macros (4/9/4 kcal/g): ≈ {impliedKcal} kcal
+          {mismatch && ' — noticeably different from the calorie goal.'}
         </p>
       )}
       <Field
-        label="Діє з"
+        label="Effective from"
         htmlFor="goal-effectiveFrom"
-        hint="Порожньо — з цього моменту. Майбутня дата запланує ціль."
+        hint="Empty means from now on. A future date schedules the goal."
         className="max-w-xs"
       >
         <input
@@ -95,9 +95,9 @@ export function ManualGoalForm({
           {...register('effectiveFrom')}
         />
       </Field>
-      {setManual.isError && <ErrorAlert error={setManual.error} title="Не вдалося зберегти ціль" />}
+      {setManual.isError && <ErrorAlert error={setManual.error} title="Could not save the goal" />}
       <Button type="submit" loading={setManual.isPending}>
-        Зберегти ручну ціль
+        Save manual goal
       </Button>
     </form>
   );

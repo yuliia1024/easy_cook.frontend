@@ -1,10 +1,10 @@
 import { ApiError } from '../api/http';
 
 const STATUS_MESSAGES: Record<number, string> = {
-  400: 'Дані не пройшли перевірку.',
-  404: 'Не знайдено.',
-  409: 'Такий запис уже існує.',
-  503: 'База даних недоступна.',
+  400: 'Validation failed.',
+  404: 'Not found.',
+  409: 'This record already exists.',
+  503: 'The database is unavailable.',
 };
 
 /** Human text for any error thrown by a query or mutation. */
@@ -12,9 +12,9 @@ export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 0) return error.message;
     if (error.details.length > 0) return STATUS_MESSAGES[error.status] ?? error.message;
-    return error.message || STATUS_MESSAGES[error.status] || 'Помилка сервера.';
+    return error.message || STATUS_MESSAGES[error.status] || 'Server error.';
   }
-  return 'Щось пішло не так. Спробуйте ще раз.';
+  return 'Something went wrong. Please try again.';
 }
 
 export function errorDetails(error: unknown): string[] {

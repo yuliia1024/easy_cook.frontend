@@ -20,20 +20,20 @@ const number = (min: number, max: number, decimals: number, unit = '') =>
     .transform(parseOptionalNumber)
     .pipe(
       z
-        .number({ error: 'Введіть число' })
-        .min(min, `Від ${min}${unit}`)
-        .max(max, `До ${max}${unit}`)
+        .number({ error: 'Enter a number' })
+        .min(min, `At least ${min}${unit}`)
+        .max(max, `At most ${max}${unit}`)
         .refine(
           (value) => hasMaxDecimals(value, decimals),
-          decimals === 0 ? 'Ціле число' : `Не більше ${decimals} знаку після коми`,
+          decimals === 0 ? 'Must be a whole number' : `At most ${decimals} decimal place(s)`,
         ),
     );
 
 // PROFILE_LIMITS in the backend.
 export const profileFormSchema = z.object({
   age: number(14, 100, 0),
-  heightCm: number(100, 250, 1, ' см'),
-  weightKg: number(30, 300, 1, ' кг'),
+  heightCm: number(100, 250, 1, ' cm'),
+  weightKg: number(30, 300, 1, ' kg'),
   sex: z.enum(keys(SEX_LABELS)),
   activityLevel: z.enum(keys(ACTIVITY_LEVEL_LABELS)),
   goal: z.enum(keys(GOAL_LABELS)),
@@ -55,10 +55,10 @@ export function toProfileFormValues(profile: Profile | null): ProfileFormValues 
 
 // SetNutritionGoalDto in the backend.
 export const manualGoalSchema = z.object({
-  caloriesKcal: number(800, 6000, 1, ' ккал'),
-  proteinG: number(0, 500, 1, ' г'),
-  fatG: number(0, 400, 1, ' г'),
-  carbsG: number(0, 1000, 1, ' г'),
+  caloriesKcal: number(800, 6000, 1, ' kcal'),
+  proteinG: number(0, 500, 1, ' g'),
+  fatG: number(0, 400, 1, ' g'),
+  carbsG: number(0, 1000, 1, ' g'),
   /** `yyyy-mm-dd` from a date input; empty = now. */
   effectiveFrom: z.string(),
 });

@@ -1,4 +1,4 @@
-export function Spinner({ label = 'Завантаження…' }: { label?: string }) {
+export function Spinner({ label = 'Loading…' }: { label?: string }) {
   return (
     <div role="status" className="flex items-center gap-2 py-8 text-sm text-stone-500">
       <span

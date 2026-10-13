@@ -1,9 +1,9 @@
 import { NavLink, Outlet } from 'react-router';
 
 const LINKS = [
-  { to: '/foods', label: 'Продукти' },
-  { to: '/recipes', label: 'Рецепти' },
-  { to: '/profile', label: 'Профіль і цілі' },
+  { to: '/foods', label: 'Foods' },
+  { to: '/recipes', label: 'Recipes' },
+  { to: '/profile', label: 'Profile & goals' },
 ];
 
 export function Layout() {
@@ -14,7 +14,7 @@ export function Layout() {
           <NavLink to="/" className="text-lg font-semibold text-green-800">
             Easy Cook
           </NavLink>
-          <nav aria-label="Основна навігація" className="flex gap-1">
+          <nav aria-label="Main navigation" className="flex gap-1">
             {LINKS.map((link) => (
               <NavLink
                 key={link.to}

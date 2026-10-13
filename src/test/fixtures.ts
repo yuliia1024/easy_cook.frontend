@@ -5,7 +5,7 @@ const NOW = '2026-10-13T10:00:00.000Z';
 export function buildFood(overrides: Partial<FoodItem> = {}): FoodItem {
   return {
     id: '11111111-1111-4111-8111-111111111111',
-    name: 'Гречка суха',
+    name: 'Buckwheat, dry',
     nameEn: 'Buckwheat groats, dry',
     kcalPer100g: 343,
     proteinG: 13.3,
@@ -24,9 +24,9 @@ export function buildRecipe(overrides: Partial<Recipe> = {}): Recipe {
   const food = buildFood();
   return {
     id: '22222222-2222-4222-8222-222222222222',
-    name: 'Гречка з куркою',
-    description: 'Простий обід.',
-    instructions: 'Зварити гречку.',
+    name: 'Buckwheat with chicken',
+    description: 'A simple lunch.',
+    instructions: 'Boil the buckwheat.',
     mealType: 'lunch',
     dietType: ['high_protein'],
     servings: 2,
@@ -65,7 +65,7 @@ export function buildNutrition(overrides: Partial<RecipeNutrition> = {}): Recipe
       {
         ingredientId: '33333333-3333-4333-8333-333333333333',
         foodItemId: '11111111-1111-4111-8111-111111111111',
-        foodName: 'Гречка суха',
+        foodName: 'Buckwheat, dry',
         state: 'dried',
         quantityG: 150,
         isOptional: false,

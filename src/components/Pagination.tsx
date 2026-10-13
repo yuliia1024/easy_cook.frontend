@@ -12,16 +12,16 @@ export function Pagination({ page, limit, total, onChange }: Props) {
   if (pages <= 1) return null;
 
   return (
-    <nav aria-label="Сторінки" className="mt-4 flex items-center justify-between gap-2 text-sm">
+    <nav aria-label="Pagination" className="mt-4 flex items-center justify-between gap-2 text-sm">
       <span className="text-stone-600">
-        Сторінка {page} з {pages} · {total} записів
+        Page {page} of {pages} · {total} records
       </span>
       <div className="flex gap-2">
         <Button variant="secondary" disabled={page <= 1} onClick={() => onChange(page - 1)}>
-          Назад
+          Previous
         </Button>
         <Button variant="secondary" disabled={page >= pages} onClick={() => onChange(page + 1)}>
-          Далі
+          Next
         </Button>
       </div>
     </nav>

@@ -23,22 +23,22 @@ export function FoodDetailsPage() {
   return (
     <>
       <Link to="/foods" className="text-sm text-stone-600 hover:underline">
-        ← Усі продукти
+        ← All foods
       </Link>
       <PageHeader
         title={data.name}
         actions={
           <Link to={`/foods/${data.id}/edit`} className={buttonClass('secondary')}>
-            Редагувати
+            Edit
           </Link>
         }
       >
         {data.nameEn && <span>{data.nameEn} · </span>}
-        стан: <strong>{FOOD_STATE_LABELS[data.state]}</strong>
+        state: <strong>{FOOD_STATE_LABELS[data.state]}</strong>
       </PageHeader>
 
       <MacrosSummary
-        caption="На 100 г продукту в цьому стані"
+        caption="Per 100 g of the food in this state"
         values={{
           kcal: data.kcalPer100g,
           proteinG: data.proteinG,
@@ -48,18 +48,18 @@ export function FoodDetailsPage() {
       />
       {hasUnknown && (
         <p className="mt-2 text-sm text-amber-700">
-          Деякі значення невідомі («—»). У розрахунку рецептів вони рахуються як 0 і позначаються як
-          неповні.
+          Some values are unknown (“—”). Recipe calculations count them as 0 and mark the result as
+          incomplete.
         </p>
       )}
 
       <dl className="mt-6 grid gap-2 text-sm sm:grid-cols-[max-content_1fr] sm:gap-x-6">
-        <dt className="text-stone-500">Джерело</dt>
+        <dt className="text-stone-500">Source</dt>
         <dd>
           {FOOD_SOURCE_LABELS[data.source]}
           {data.sourceId && <span className="text-stone-500"> · {data.sourceId}</span>}
         </dd>
-        <dt className="text-stone-500">Оновлено</dt>
+        <dt className="text-stone-500">Updated</dt>
         <dd>{formatDate(data.updatedAt)}</dd>
       </dl>
     </>

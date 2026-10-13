@@ -40,18 +40,18 @@ describe('ProfilePage', () => {
     );
     const { user } = render();
 
-    expect(await screen.findByText(/Профіль ще не заповнено/)).toBeInTheDocument();
+    expect(await screen.findByText(/The profile is not filled in yet/)).toBeInTheDocument();
     expect(
-      screen.queryByRole('heading', { name: 'Цілі харчування на день' }),
+      screen.queryByRole('heading', { name: 'Daily nutrition goals' }),
     ).not.toBeInTheDocument();
 
-    await user.type(screen.getByLabelText('Вік, років'), '30');
-    await user.type(screen.getByLabelText('Зріст, см'), '170');
-    await user.type(screen.getByLabelText('Вага, кг'), '65,5');
-    await user.click(screen.getByRole('button', { name: 'Створити профіль' }));
+    await user.type(screen.getByLabelText('Age, years'), '30');
+    await user.type(screen.getByLabelText('Height, cm'), '170');
+    await user.type(screen.getByLabelText('Weight, kg'), '65.5');
+    await user.click(screen.getByRole('button', { name: 'Create profile' }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Цілі харчування на день' }),
+      await screen.findByRole('heading', { name: 'Daily nutrition goals' }),
     ).toBeInTheDocument();
     expect(body).toEqual({
       age: 30,
@@ -61,16 +61,16 @@ describe('ProfilePage', () => {
       activityLevel: 'moderate',
       goal: 'maintain',
     });
-    expect(screen.getByText('Ціль ще не встановлено')).toBeInTheDocument();
+    expect(screen.getByText('No goal set yet')).toBeInTheDocument();
   });
 
   it('validates the profile against the backend limits', async () => {
     server.use(http.get(api('/profile'), () => apiError(404, 'Profile not found')));
     const { user } = render();
 
-    await user.type(await screen.findByLabelText('Вік, років'), '5');
-    await user.click(screen.getByRole('button', { name: 'Створити профіль' }));
-    expect(await screen.findByText('Від 14')).toBeInTheDocument();
+    await user.type(await screen.findByLabelText('Age, years'), '5');
+    await user.click(screen.getByRole('button', { name: 'Create profile' }));
+    expect(await screen.findByText('At least 14')).toBeInTheDocument();
   });
 
   it('shows the current goal with its rule version, the history and the disclaimer', async () => {
@@ -83,12 +83,12 @@ describe('ProfilePage', () => {
     render();
 
     expect(
-      await screen.findByText(/за формулою \(правила mifflin-st-jeor-v1\)/),
+      await screen.findByText(/by formula \(rules mifflin-st-jeor-v1\)/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/не медичні призначення/)).toBeInTheDocument();
+    expect(screen.getByText(/not medical advice/)).toBeInTheDocument();
     const rows = screen.getAllByRole('row');
     expect(rows).toHaveLength(3);
-    expect(rows[2]).toHaveTextContent('вручну');
+    expect(rows[2]).toHaveTextContent('manually');
     expect(rows[2]).toHaveTextContent(num(1800));
   });
 
@@ -103,17 +103,17 @@ describe('ProfilePage', () => {
     );
     const { user } = render();
 
-    const preview = await screen.findByRole('region', { name: 'Розрахунок за поточним профілем' });
+    const preview = await screen.findByRole('region', { name: 'Calculated from the current profile' });
     expect(within(preview).getByText(num(2200))).toBeInTheDocument();
     server.use(
       http.get(api('/nutrition/goals/current'), () =>
         HttpResponse.json(buildGoal({ caloriesKcal: 2200 })),
       ),
     );
-    await user.click(screen.getByRole('button', { name: 'Встановити як поточну ціль' }));
+    await user.click(screen.getByRole('button', { name: 'Set as current goal' }));
 
     await vi.waitFor(() => expect(calculated).toBe(true));
-    expect(await screen.findByText(/діє з/)).toBeInTheDocument();
+    expect(await screen.findByText(/effective from/)).toBeInTheDocument();
   });
 
   it('sets a manual goal', async () => {
@@ -127,19 +127,19 @@ describe('ProfilePage', () => {
     );
     const { user } = render();
 
-    await user.click(await screen.findByRole('button', { name: 'Вручну' }));
-    const kcal = screen.getByLabelText('Калорії, ккал');
+    await user.click(await screen.findByRole('button', { name: 'Manual' }));
+    const kcal = screen.getByLabelText('Calories, kcal');
     expect(kcal).toHaveValue('2100');
     await user.clear(kcal);
     await user.type(kcal, '1900');
-    expect(screen.getByText(/≈ 2098 ккал — помітно відрізняється/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Зберегти ручну ціль' }));
+    expect(screen.getByText(/≈ 2098 kcal — noticeably different/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save manual goal' }));
 
     await vi.waitFor(() =>
       expect(body).toEqual({ caloriesKcal: 1900, proteinG: 105, fatG: 58, carbsG: 289 }),
     );
     expect(
-      await screen.findByRole('button', { name: 'Встановити як поточну ціль' }),
+      await screen.findByRole('button', { name: 'Set as current goal' }),
     ).toBeInTheDocument();
   });
 

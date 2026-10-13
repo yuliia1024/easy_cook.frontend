@@ -26,7 +26,7 @@ export function ErrorAlert({ error, onRetry, title }: Props) {
       )}
       {onRetry && (
         <Button variant="secondary" className="mt-3" onClick={onRetry}>
-          Спробувати ще раз
+          Try again
         </Button>
       )}
     </div>
