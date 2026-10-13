@@ -1,0 +1,24 @@
+const numberFormat = new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 1 });
+const dateFormat = new Intl.DateTimeFormat('uk-UA', { dateStyle: 'medium', timeStyle: 'short' });
+
+/** A nutrient value; null is unknown and shown as a dash, never as 0. */
+export function formatNumber(value: number | null | undefined): string {
+  return value === null || value === undefined ? '—' : numberFormat.format(value);
+}
+
+export function formatDate(iso: string): string {
+  return dateFormat.format(new Date(iso));
+}
+
+/** `''` for an empty input, a number otherwise (NaN for garbage, left to validation). */
+export function parseOptionalNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim().replace(',', '.');
+  return text === '' ? null : Number(text);
+}
+
+/** Float-safe "at most `places` decimals" (0.29 * 100 is 28.999…). */
+export function hasMaxDecimals(value: number, places: number): boolean {
+  const scaled = value * 10 ** places;
+  return Math.abs(scaled - Math.round(scaled)) < 1e-6;
+}

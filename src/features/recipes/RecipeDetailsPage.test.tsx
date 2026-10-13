@@ -1,0 +1,68 @@
+import { screen, within } from '@testing-library/react';
+import { buildNutrition, buildRecipe } from '../../test/fixtures';
+import { renderRoutes } from '../../test/render';
+import { api, apiError, http, HttpResponse, server } from '../../test/server';
+import { RecipeDetailsPage } from './RecipeDetailsPage';
+
+const recipe = buildRecipe();
+const routes = [
+  { path: '/recipes/:id', element: <RecipeDetailsPage /> },
+  { path: '/recipes', element: <p>recipes list</p> },
+];
+
+describe('RecipeDetailsPage', () => {
+  it('shows КБЖВ for the whole recipe, per serving and per ingredient', async () => {
+    server.use(
+      http.get(api(`/recipes/${recipe.id}`), () => HttpResponse.json(recipe)),
+      http.get(api(`/recipes/${recipe.id}/nutrition`), () => HttpResponse.json(buildNutrition())),
+    );
+    renderRoutes(routes, `/recipes/${recipe.id}`);
+
+    const perServing = await screen.findByRole('region', { name: 'На порцію' });
+    expect(within(perServing).getByText('257,3')).toBeInTheDocument();
+    const total = screen.getByRole('region', { name: 'На весь рецепт (2 порц.)' });
+    expect(within(total).getByText('514,5')).toBeInTheDocument();
+    const row = screen.getByRole('link', { name: 'Гречка суха' }).closest('tr')!;
+    expect(row).toHaveTextContent('150');
+    expect(screen.getByText('Зварити гречку.')).toBeInTheDocument();
+  });
+
+  it('recalculates with optional ingredients and marks missing values', async () => {
+    const withOptional = buildRecipe({
+      ingredients: [{ ...recipe.ingredients[0], isOptional: true }],
+    });
+    const requested: string[] = [];
+    server.use(
+      http.get(api(`/recipes/${recipe.id}`), () => HttpResponse.json(withOptional)),
+      http.get(api(`/recipes/${recipe.id}/nutrition`), ({ request }) => {
+        const include = new URL(request.url).searchParams.get('includeOptional')!;
+        requested.push(include);
+        return HttpResponse.json(buildNutrition({ complete: include === 'true' ? false : true }));
+      }),
+    );
+    const { user } = renderRoutes(routes, `/recipes/${recipe.id}`);
+
+    await user.click(await screen.findByLabelText("Враховувати необов'язкові інгредієнти"));
+    expect(await screen.findByText(/Неповні дані/)).toBeInTheDocument();
+    expect(requested).toEqual(['false', 'true']);
+  });
+
+  it('deletes after confirmation', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    server.use(
+      http.get(api(`/recipes/${recipe.id}`), () => HttpResponse.json(recipe)),
+      http.get(api(`/recipes/${recipe.id}/nutrition`), () => HttpResponse.json(buildNutrition())),
+      http.delete(api(`/recipes/${recipe.id}`), () => new HttpResponse(null, { status: 204 })),
+    );
+    const { user } = renderRoutes(routes, `/recipes/${recipe.id}`);
+
+    await user.click(await screen.findByRole('button', { name: 'Видалити' }));
+    expect(await screen.findByText('recipes list')).toBeInTheDocument();
+  });
+
+  it('shows a not found error', async () => {
+    server.use(http.get(api(`/recipes/${recipe.id}`), () => apiError(404, 'Recipe not found')));
+    renderRoutes(routes, `/recipes/${recipe.id}`);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Recipe not found');
+  });
+});
