@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { FoodItem } from '../../api/types';
@@ -9,7 +10,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { Spinner } from '../../components/Spinner';
 import { FOOD_STATE_LABELS, toOptions } from '../../lib/labels';
 import {
-  foodFormSchema,
+  createFoodFormSchema,
   toFoodFormValues,
   toFoodInput,
   type FoodFormOutput,
@@ -23,6 +24,13 @@ const NUTRIENT_FIELDS = [
   { name: 'fatG', label: 'Fat, g' },
   { name: 'carbsG', label: 'Carbs, g' },
 ] as const;
+
+/** Cross-field checks put their error on kcal (4/9/4) and carbs (sum ≤ 100 g). */
+const DEPS: Partial<Record<keyof FoodFormValues, (keyof FoodFormValues)[]>> = {
+  proteinG: ['kcalPer100g', 'carbsG'],
+  fatG: ['kcalPer100g', 'carbsG'],
+  carbsG: ['kcalPer100g'],
+};
 
 /** `/foods/new` and `/foods/:id/edit`. */
 export function FoodFormPage() {
@@ -38,12 +46,13 @@ export function FoodFormPage() {
 function FoodForm({ food }: { food?: FoodItem }) {
   const navigate = useNavigate();
   const save = useSaveFood(food?.id);
+  const schema = useMemo(() => createFoodFormSchema(food), [food]);
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<FoodFormValues, unknown, FoodFormOutput>({
-    resolver: zodResolver(foodFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: toFoodFormValues(food),
   });
 
@@ -55,7 +64,7 @@ function FoodForm({ food }: { food?: FoodItem }) {
     id: name,
     'aria-invalid': errors[name] ? true : undefined,
     'aria-describedby': `${name}-msg`,
-    ...register(name),
+    ...register(name, { deps: DEPS[name] }),
   });
 
   return (

@@ -1,5 +1,10 @@
 import { buildFood } from '../../test/fixtures';
-import { foodFormSchema, toFoodFormValues, toFoodInput } from './food-form.schema';
+import {
+  createFoodFormSchema,
+  foodFormSchema,
+  toFoodFormValues,
+  toFoodInput,
+} from './food-form.schema';
 
 const valid = {
   name: 'Rice',
@@ -34,6 +39,30 @@ describe('foodFormSchema', () => {
     expect(result.error?.issues[0].path).toEqual(['carbsG']);
   });
 
+  it('checks the calories against protein, fat and carbs (4/9/4)', () => {
+    // 7 / 0.6 / 80 g give ≈ 353 kcal.
+    expect(foodFormSchema.safeParse({ ...valid, kcalPer100g: '420' }).success).toBe(true);
+    const result = foodFormSchema.safeParse({ ...valid, kcalPer100g: '130' });
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        path: ['kcalPer100g'],
+        message: '130 kcal does not match protein, fat and carbs (≈ 353 kcal by 4/9/4)',
+      }),
+    ]);
+  });
+
+  it('skips the calorie check while a value is unknown', () => {
+    expect(foodFormSchema.safeParse({ ...valid, kcalPer100g: '130', fatG: '' }).success).toBe(true);
+  });
+
+  it('when editing, checks the calories only after a nutrient changes', () => {
+    const odd = buildFood({ kcalPer100g: 130, proteinG: 7, fatG: 0.6, carbsG: 80 });
+    const schema = createFoodFormSchema(odd);
+    const values = toFoodFormValues(odd);
+    expect(schema.safeParse({ ...values, name: 'Renamed' }).success).toBe(true);
+    expect(schema.safeParse({ ...values, proteinG: '8' }).success).toBe(false);
+  });
+
   it('requires a name', () => {
     expect(foodFormSchema.safeParse({ ...valid, name: '  ' }).success).toBe(false);
   });
@@ -44,5 +73,12 @@ describe('form mapping', () => {
     const values = toFoodFormValues(buildFood({ fatG: null, nameEn: null }));
     expect(values.fatG).toBe('');
     expect(toFoodInput(foodFormSchema.parse(values))).toMatchObject({ fatG: null, nameEn: null });
+  });
+
+  it('never sends the source (the API sets it)', () => {
+    const food = buildFood({ source: 'usda_fdc' });
+    expect(
+      toFoodInput(createFoodFormSchema(food).parse(toFoodFormValues(food))),
+    ).not.toHaveProperty('source');
   });
 });

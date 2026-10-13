@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { NutritionGoal } from '../../api/types';
+import type { NutritionGoal, Sex } from '../../api/types';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorAlert } from '../../components/ErrorAlert';
@@ -57,12 +57,12 @@ export function ProfilePage() {
         )}
       </section>
 
-      {profile.data && <GoalsSection />}
+      {profile.data && <GoalsSection sex={profile.data.sex} />}
     </>
   );
 }
 
-function GoalsSection() {
+function GoalsSection({ sex }: { sex: Sex }) {
   const [mode, setMode] = useState<'rules' | 'manual'>('rules');
   const current = useCurrentGoal(true);
   const history = useGoalHistory(true);
@@ -123,7 +123,11 @@ function GoalsSection() {
         {mode === 'rules' ? (
           <RuleBasedGoal />
         ) : (
-          <ManualGoalForm current={current.data ?? null} onSaved={() => setMode('rules')} />
+          <ManualGoalForm
+            current={current.data ?? null}
+            sex={sex}
+            onSaved={() => setMode('rules')}
+          />
         )}
       </div>
 
@@ -186,15 +190,19 @@ function RuleBasedGoal() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-stone-600">
-        Basal metabolic rate (Mifflin-St Jeor) times the activity factor; −15% to lose weight,
-        +10% to gain muscle. Protein 1.6–2.0 g per kg of body weight, fat 25% of calories, carbs the rest.
+        Basal metabolic rate (Mifflin-St Jeor) times the activity factor; −15% to lose weight, +10%
+        to gain muscle. Protein 1.6–2.0 g per kg of body weight, fat 25% of calories, carbs the
+        rest.
       </p>
       {preview.isPending ? (
         <Spinner label="Calculating…" />
       ) : preview.isError ? (
         <ErrorAlert error={preview.error} onRetry={() => void preview.refetch()} />
       ) : (
-        <MacrosSummary caption="Calculated from the current profile" values={toMacros(preview.data)} />
+        <MacrosSummary
+          caption="Calculated from the current profile"
+          values={toMacros(preview.data)}
+        />
       )}
       {calculate.isError && <ErrorAlert error={calculate.error} title="Could not save the goal" />}
       <Button

@@ -63,6 +63,45 @@ describe('RecipeFormPage', () => {
     });
   });
 
+  it('limits one serving, optional ingredients included, and re-checks when servings change', async () => {
+    let posted = false;
+    server.use(
+      http.get(api('/foods'), () => HttpResponse.json(page([rice]))),
+      http.post(api('/recipes'), () => {
+        posted = true;
+        return HttpResponse.json(buildRecipe({ id: 'new-recipe' }));
+      }),
+    );
+    const { user } = renderRoutes(routes, '/recipes/new');
+
+    await user.type(screen.getByLabelText('Name'), 'Rice');
+    await user.type(screen.getByLabelText('Instructions'), 'Boil.');
+    await user.type(screen.getByLabelText('Add an ingredient from the catalog'), 'ri');
+    await user.click(await screen.findByRole('button', { name: 'Add Rice, dry' }));
+    const quantity = screen.getByLabelText('Weight of Rice, dry, g');
+    await user.clear(quantity);
+    await user.type(quantity, '5000');
+    await user.click(screen.getByLabelText('optional'));
+    expect(screen.getByText(/one serving weighs ≈ 2500 g and has ≈ 9000 kcal/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(
+      await screen.findByText('One serving would weigh 2500 g; at most 2000 g'),
+    ).toBeInTheDocument();
+
+    const servings = screen.getByLabelText('Servings');
+    await user.clear(servings);
+    await user.type(servings, '3');
+    expect(
+      await screen.findByText('One serving would have 6000 kcal; at most 2500 kcal'),
+    ).toBeInTheDocument();
+
+    await user.clear(servings);
+    await user.type(servings, '10');
+    await vi.waitFor(() => expect(screen.queryByText(/One serving would/)).not.toBeInTheDocument());
+    expect(posted).toBe(false);
+  });
+
   it('requires at least one ingredient', async () => {
     const { user } = renderRoutes(routes, '/recipes/new');
     await user.click(screen.getByRole('button', { name: 'Save' }));

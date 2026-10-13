@@ -10,7 +10,8 @@ import { PageHeader } from '../../components/PageHeader';
 import { Spinner } from '../../components/Spinner';
 import { parseOptionalNumber } from '../../lib/format';
 import { DIET_TAG_LABELS, FOOD_STATE_LABELS, MEAL_TYPE_LABELS, toOptions } from '../../lib/labels';
-import { estimateNutrition } from '../../lib/nutrition';
+import { MAX_SERVING_KCAL, MAX_SERVING_WEIGHT_G } from '../../lib/limits';
+import { estimateNutrition, servingLoad } from '../../lib/nutrition';
 import { FoodPicker } from './FoodPicker';
 import {
   recipeFormSchema,
@@ -51,14 +52,14 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
     name: ['ingredients', 'servings'],
   });
 
-  const estimate = estimateNutrition(
-    watchedIngredients.map((line) => ({
-      food: line.food,
-      quantityG: parseOptionalNumber(line.quantityG) ?? Number.NaN,
-      isOptional: line.isOptional,
-    })),
-    parseOptionalNumber(watchedServings) ?? 1,
-  );
+  const lines = watchedIngredients.map((line) => ({
+    food: line.food,
+    quantityG: parseOptionalNumber(line.quantityG) ?? Number.NaN,
+    isOptional: line.isOptional,
+  }));
+  const servings = parseOptionalNumber(watchedServings) ?? 1;
+  const estimate = estimateNutrition(lines, servings);
+  const serving = servingLoad(lines, servings);
 
   const onSubmit = (values: RecipeFormOutput): void => {
     save.mutate(toRecipeInput(values), { onSuccess: (saved) => navigate(`/recipes/${saved.id}`) });
@@ -82,12 +83,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Name"
-            htmlFor="name"
-            error={errors.name?.message}
-            className="sm:col-span-2"
-          >
+          <Field label="Name" htmlFor="name" error={errors.name?.message} className="sm:col-span-2">
             <input className="input" {...a11y('name', errors.name)} {...register('name')} />
           </Field>
           <Field label="Meal type" htmlFor="mealType" error={errors.mealType?.message}>
@@ -109,7 +105,8 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
                 className="input"
                 inputMode="numeric"
                 {...a11y('servings', errors.servings)}
-                {...register('servings')}
+                // The per-serving limits are reported on the ingredient list.
+                {...register('servings', { deps: ['ingredients'] })}
               />
             </Field>
             <Field
@@ -136,11 +133,17 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
               ))}
             </div>
           </fieldset>
-          <Field label="Description" htmlFor="description" hint="Optional" className="sm:col-span-2">
+          <Field
+            label="Description"
+            htmlFor="description"
+            error={errors.description?.message}
+            hint="Optional"
+            className="sm:col-span-2"
+          >
             <textarea
               className="input"
               rows={2}
-              {...a11y('description')}
+              {...a11y('description', errors.description)}
               {...register('description')}
             />
           </Field>
@@ -164,7 +167,8 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
             Ingredients
           </h2>
           <p className="text-xs text-stone-500">
-            Weight is for the whole recipe, in the state of the chosen food (150 g of dry rice ≠ 150 g of boiled).
+            Weight is for the whole recipe, in the state of the chosen food (150 g of dry rice ≠ 150
+            g of boiled).
           </p>
           {ingredients.fields.length === 0 ? (
             <p className="text-sm text-stone-500">No ingredients yet.</p>
@@ -280,6 +284,11 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
               missing={estimate.missing}
             />
           </div>
+          <p className="text-sm text-stone-500">
+            With every ingredient, optional ones included, one serving weighs ≈{' '}
+            {Math.round(serving.weightG)} g and has ≈ {Math.round(serving.kcal)} kcal (at most{' '}
+            {MAX_SERVING_WEIGHT_G} g and {MAX_SERVING_KCAL} kcal).
+          </p>
           {estimate.missing.length > 0 && (
             <p className="text-sm text-amber-700">
               * Some ingredient values are unknown and counted as 0.

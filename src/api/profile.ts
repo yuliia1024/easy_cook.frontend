@@ -19,7 +19,9 @@ export const nutritionGoalsApi = {
   history: (): Promise<NutritionGoal[]> => request('/nutrition/goals'),
   /** 404 until a goal is set. */
   current: (): Promise<NutritionGoal> => request('/nutrition/goals/current'),
-  preview: (): Promise<NutritionTargets> => request('/nutrition/goals/preview'),
+  /** With `caloriesKcal`, splits those calories into macros for the profile instead. */
+  preview: (caloriesKcal?: number): Promise<NutritionTargets> =>
+    request('/nutrition/goals/preview', { query: { caloriesKcal } }),
   setManual: (input: ManualGoalInput): Promise<NutritionGoal> =>
     request('/nutrition/goals', { method: 'POST', body: input }),
   calculate: (): Promise<NutritionGoal> =>

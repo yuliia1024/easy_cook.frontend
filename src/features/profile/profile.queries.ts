@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../../api/http';
 import { nutritionGoalsApi, profileApi } from '../../api/profile';
-import type { ManualGoalInput, NutritionGoal, Profile, ProfileInput } from '../../api/types';
+import type {
+  ManualGoalInput,
+  NutritionGoal,
+  NutritionTargets,
+  Profile,
+  ProfileInput,
+} from '../../api/types';
 
 export const profileKeys = {
   profile: ['profile'] as const,
@@ -50,7 +56,19 @@ export function useGoalHistory(enabled: boolean) {
 }
 
 export function useGoalPreview(enabled: boolean) {
-  return useQuery({ queryKey: profileKeys.preview, queryFn: nutritionGoalsApi.preview, enabled });
+  return useQuery({
+    queryKey: profileKeys.preview,
+    queryFn: () => nutritionGoalsApi.preview(),
+    enabled,
+  });
+}
+
+/** Macros for calories typed by hand; on demand, nothing is saved. */
+export function useRecalculateMacros() {
+  return useMutation({
+    mutationFn: (caloriesKcal: number): Promise<NutritionTargets> =>
+      nutritionGoalsApi.preview(caloriesKcal),
+  });
 }
 
 function useGoalMutation<T>(mutationFn: (input: T) => Promise<NutritionGoal>) {

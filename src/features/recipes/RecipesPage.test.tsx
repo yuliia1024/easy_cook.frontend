@@ -40,10 +40,7 @@ describe('RecipesPage', () => {
       expect(last.get('mealType')).toBe('dinner');
       expect(last.getAll('dietType')).toEqual(['vegan', 'gluten_free']);
     });
-    expect(screen.getByRole('button', { name: 'vegan' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    expect(screen.getByRole('button', { name: 'vegan' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('shows an empty state', async () => {

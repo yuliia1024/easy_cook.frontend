@@ -46,7 +46,8 @@ export function FoodsPage() {
           </Link>
         }
       >
-        Calories and macros per 100 g of the food in the given state. “—” means the value is unknown.
+        Calories and macros per 100 g of the food in the given state. “—” means the value is
+        unknown.
       </PageHeader>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]">

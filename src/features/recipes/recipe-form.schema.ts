@@ -2,6 +2,15 @@ import { z } from 'zod';
 import type { DietTag, FoodItem, MealType, Recipe, RecipeInput } from '../../api/types';
 import { hasMaxDecimals, parseOptionalNumber } from '../../lib/format';
 import { DIET_TAG_LABELS, MEAL_TYPE_LABELS } from '../../lib/labels';
+import {
+  INGREDIENT_MAX_QUANTITY_G,
+  MAX_RECIPE_INGREDIENTS,
+  MAX_SERVING_KCAL,
+  MAX_SERVING_WEIGHT_G,
+  RECIPE_DESCRIPTION_MAX_LENGTH,
+  RECIPE_INSTRUCTIONS_MAX_LENGTH,
+} from '../../lib/limits';
+import { servingLoad } from '../../lib/nutrition';
 
 const keys = <T extends string>(labels: Record<T, string>) => Object.keys(labels) as [T, ...T[]];
 
@@ -15,7 +24,7 @@ const ingredientSchema = z.object({
       z
         .number({ error: 'Enter a weight' })
         .min(0.01, 'Must be greater than 0')
-        .max(100_000, 'Too much')
+        .max(INGREDIENT_MAX_QUANTITY_G, `At most ${INGREDIENT_MAX_QUANTITY_G} g`)
         .refine((value) => hasMaxDecimals(value, 2), 'At most two decimal places'),
     ),
   isOptional: z.boolean(),
@@ -35,19 +44,45 @@ const optionalInt = (min: number, max: number) =>
         .nullable(),
     );
 
-export const recipeFormSchema = z.object({
-  name: z.string().trim().min(1, 'Enter a name').max(255, 'At most 255 characters'),
-  description: z.string().trim(),
-  instructions: z.string().trim().min(1, 'Describe the instructions'),
-  mealType: z.enum(keys(MEAL_TYPE_LABELS), { error: 'Choose a meal type' }),
-  dietType: z.array(z.enum(keys(DIET_TAG_LABELS))),
-  servings: optionalInt(1, 100).pipe(z.number({ error: 'Enter the number of servings' })),
-  prepTimeMinutes: optionalInt(0, 24 * 60),
-  ingredients: z
-    .array(ingredientSchema)
-    .min(1, 'Add at least one ingredient')
-    .max(100, 'At most 100 ingredients'),
-});
+export const recipeFormSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Enter a name').max(255, 'At most 255 characters'),
+    description: z
+      .string()
+      .trim()
+      .max(RECIPE_DESCRIPTION_MAX_LENGTH, `At most ${RECIPE_DESCRIPTION_MAX_LENGTH} characters`),
+    instructions: z
+      .string()
+      .trim()
+      .min(1, 'Describe the instructions')
+      .max(RECIPE_INSTRUCTIONS_MAX_LENGTH, `At most ${RECIPE_INSTRUCTIONS_MAX_LENGTH} characters`),
+    mealType: z.enum(keys(MEAL_TYPE_LABELS), { error: 'Choose a meal type' }),
+    dietType: z.array(z.enum(keys(DIET_TAG_LABELS))),
+    servings: optionalInt(1, 100).pipe(z.number({ error: 'Enter the number of servings' })),
+    prepTimeMinutes: optionalInt(0, 24 * 60),
+    ingredients: z
+      .array(ingredientSchema)
+      .min(1, 'Add at least one ingredient')
+      .max(MAX_RECIPE_INGREDIENTS, `At most ${MAX_RECIPE_INGREDIENTS} ingredients`),
+  })
+  .superRefine((recipe, ctx) => {
+    if (ctx.issues.length > 0) return;
+    // A form-level error on the ingredient list, as the backend checks the whole recipe.
+    const { weightG, kcal } = servingLoad(recipe.ingredients, recipe.servings);
+    if (weightG > MAX_SERVING_WEIGHT_G) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ingredients'],
+        message: `One serving would weigh ${Math.round(weightG)} g; at most ${MAX_SERVING_WEIGHT_G} g`,
+      });
+    } else if (kcal > MAX_SERVING_KCAL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ingredients'],
+        message: `One serving would have ${Math.round(kcal)} kcal; at most ${MAX_SERVING_KCAL} kcal`,
+      });
+    }
+  });
 
 export type RecipeFormValues = z.input<typeof recipeFormSchema>;
 export type RecipeFormOutput = z.output<typeof recipeFormSchema>;

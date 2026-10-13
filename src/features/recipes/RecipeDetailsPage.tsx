@@ -96,13 +96,15 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
               </p>
             )}
             <p className="mt-2 text-xs text-stone-500">
-              Sum of the ingredients in their given state; water and oil losses during cooking are not
-              taken into account.
+              Sum of the ingredients in their given state; water and oil losses during cooking are
+              not taken into account.
             </p>
 
             <div className="mt-4 overflow-x-auto rounded-lg border border-stone-200 bg-white">
               <table className="w-full text-sm">
-                <caption className="sr-only">Ingredients and their contribution to calories and macros</caption>
+                <caption className="sr-only">
+                  Ingredients and their contribution to calories and macros
+                </caption>
                 <thead className="bg-stone-100 text-left text-xs uppercase tracking-wide text-stone-600">
                   <tr>
                     <th className="px-3 py-2">Ingredient</th>

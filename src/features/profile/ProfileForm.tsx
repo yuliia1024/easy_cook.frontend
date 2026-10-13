@@ -1,10 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import type { Profile } from '../../api/types';
 import { Button } from '../../components/Button';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { Field } from '../../components/Field';
+import { parseOptionalNumber } from '../../lib/format';
 import { ACTIVITY_LEVEL_LABELS, GOAL_LABELS, SEX_LABELS, toOptions } from '../../lib/labels';
+import { bmi } from '../../lib/nutrition';
 import { useSaveProfile } from './profile.queries';
 import {
   profileFormSchema,
@@ -19,6 +21,12 @@ const NUMBER_FIELDS = [
   { name: 'weightKg', label: 'Weight, kg', inputMode: 'decimal' },
 ] as const;
 
+/** The BMI checks put their error on weight and goal: re-check them when an input changes. */
+const DEPS: Partial<Record<keyof ProfileFormValues, (keyof ProfileFormValues)[]>> = {
+  heightCm: ['weightKg', 'goal'],
+  weightKg: ['goal'],
+};
+
 const SELECT_FIELDS = [
   { name: 'sex', label: 'Sex (for the formula)', options: toOptions(SEX_LABELS) },
   { name: 'activityLevel', label: 'Activity level', options: toOptions(ACTIVITY_LEVEL_LABELS) },
@@ -29,6 +37,7 @@ export function ProfileForm({ profile }: { profile: Profile | null }) {
   const save = useSaveProfile();
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isDirty },
     reset,
@@ -36,6 +45,14 @@ export function ProfileForm({ profile }: { profile: Profile | null }) {
     resolver: zodResolver(profileFormSchema),
     defaultValues: toProfileFormValues(profile),
   });
+
+  const [heightCm, weightKg] = useWatch({ control, name: ['heightCm', 'weightKg'] }).map(
+    parseOptionalNumber,
+  );
+  const bmiHint =
+    heightCm && weightKg && Number.isFinite(heightCm) && Number.isFinite(weightKg)
+      ? `BMI ${bmi(heightCm, weightKg).toFixed(1)}`
+      : undefined;
 
   const onSubmit = (values: ProfileFormOutput): void => {
     save.mutate(values, { onSuccess: (saved) => reset(toProfileFormValues(saved)) });
@@ -45,14 +62,20 @@ export function ProfileForm({ profile }: { profile: Profile | null }) {
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-3">
         {NUMBER_FIELDS.map(({ name, label, inputMode }) => (
-          <Field key={name} label={label} htmlFor={name} error={errors[name]?.message}>
+          <Field
+            key={name}
+            label={label}
+            htmlFor={name}
+            error={errors[name]?.message}
+            hint={name === 'weightKg' ? bmiHint : undefined}
+          >
             <input
               id={name}
               className="input"
               inputMode={inputMode}
               aria-invalid={errors[name] ? true : undefined}
               aria-describedby={`${name}-msg`}
-              {...register(name)}
+              {...register(name, { deps: DEPS[name] })}
             />
           </Field>
         ))}
@@ -61,9 +84,16 @@ export function ProfileForm({ profile }: { profile: Profile | null }) {
             key={name}
             label={label}
             htmlFor={name}
+            error={errors[name]?.message}
             className={name === 'activityLevel' ? 'sm:col-span-2' : ''}
           >
-            <select id={name} className="input" {...register(name)}>
+            <select
+              id={name}
+              className="input"
+              aria-invalid={errors[name] ? true : undefined}
+              aria-describedby={`${name}-msg`}
+              {...register(name)}
+            >
               {options.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
