@@ -10,6 +10,7 @@ import {
 import { renderRoutes } from '../../test/render';
 import { api, apiError, http, HttpResponse, server } from '../../test/server';
 import { MenuFormPage } from './MenuFormPage';
+import { dayFromToday } from '../../test/dates';
 
 const routes = [
   { path: '/menus/new', element: <MenuFormPage /> },
@@ -90,7 +91,13 @@ describe('MenuFormPage', () => {
     const menu = buildMenu({
       versions: [
         buildMenuVersion({
-          days: [{ ...buildMenuVersion().days[0], meals: [buildMenuMeal(), deleted] }],
+          days: [
+            {
+              ...buildMenuVersion().days[0],
+              date: dayFromToday(7),
+              meals: [buildMenuMeal(), deleted],
+            },
+          ],
         }),
       ],
     });
@@ -123,7 +130,7 @@ describe('MenuFormPage', () => {
       days: [
         {
           dayIndex: 0,
-          date: '2026-10-20',
+          date: dayFromToday(7),
           meals: [
             { mealType: 'lunch', recipeId: recipe.id, servings: 1 },
             { mealType: 'dinner', recipeId: recipe.id, servings: 1 },

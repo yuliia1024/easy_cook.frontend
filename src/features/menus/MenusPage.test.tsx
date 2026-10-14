@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
 import { buildMenu, buildMenuSummary, MENU_ID } from '../../test/fixtures';
 import { renderRoutes } from '../../test/render';
-import { api, apiError, http, HttpResponse, server } from '../../test/server';
+import { api, apiError, http, HttpResponse, server, uiMessageStream } from '../../test/server';
 import { MenusPage } from './MenusPage';
 
 const routes = [
@@ -27,13 +27,18 @@ describe('MenusPage', () => {
     expect(screen.getByRole('link', { name: /Draft menu/ })).toHaveTextContent('draft');
   });
 
-  it('generates a menu and opens it', async () => {
+  it('generates a menu from the stream and opens it', async () => {
     let body: unknown;
     server.use(
       http.get(api('/menus'), () => HttpResponse.json([])),
       http.post(api('/menus/generate'), async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json(buildMenu());
+        return uiMessageStream([
+          { type: 'start' },
+          { type: 'data-status', id: 'status', data: { attempt: 1, maxAttempts: 3 } },
+          { type: 'data-menu', id: 'menu', data: buildMenu() },
+          { type: 'finish' },
+        ]);
       }),
     );
     const { user, router } = renderRoutes(routes, '/menus');
@@ -55,7 +60,45 @@ describe('MenusPage', () => {
     });
   });
 
-  it('explains why the planner failed', async () => {
+  it('shows the proposal while it streams and why the planner gave up', async () => {
+    server.use(
+      http.get(api('/menus'), () => HttpResponse.json([])),
+      http.post(api('/menus/generate'), () =>
+        uiMessageStream([
+          { type: 'start' },
+          { type: 'data-status', id: 'status', data: { attempt: 2, maxAttempts: 3 } },
+          {
+            type: 'data-issues',
+            id: 'issues',
+            data: { attempt: 1, messages: ['Day 1, dinner: contains peanut'] },
+          },
+          {
+            type: 'data-day',
+            id: 'day-0',
+            data: {
+              attempt: 2,
+              dayIndex: 0,
+              date: '2026-10-20',
+              meals: [{ mealType: 'lunch', recipeId: 'r', recipeName: 'Fish soup', servings: 1.5 }],
+            },
+          },
+          { type: 'error', errorText: 'No valid menu after 3 attempts' },
+        ]),
+      ),
+    );
+    const { user } = renderRoutes(routes, '/menus');
+
+    await user.click(await screen.findByRole('button', { name: 'Generate' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No valid menu after 3 attempts');
+    const progress = screen.getByRole('region', { name: 'Generation progress' });
+    expect(progress).toHaveTextContent('Stopped at attempt 2 of 3');
+    expect(progress).toHaveTextContent('Attempt 1 was rejected:Day 1, dinner: contains peanut');
+    expect(progress).toHaveTextContent('Day 1 · 2026-10-20');
+    expect(progress).toHaveTextContent('Lunch: Fish soup × 1.5');
+  });
+
+  it('explains why planning could not start', async () => {
     server.use(
       http.get(api('/menus'), () => HttpResponse.json([])),
       http.post(api('/menus/generate'), () =>

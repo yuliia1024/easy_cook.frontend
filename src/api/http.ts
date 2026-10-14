@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
+export const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 /** The backend error body: `{ statusCode, message, error, path, timestamp }`. */
 interface ErrorBody {
@@ -52,6 +52,21 @@ async function toApiError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, message, details);
 }
 
+const UNAVAILABLE = 'The server is unavailable. Check that the API is running.';
+
+/** `fetch` for streamed endpoints: the same `ApiError`s as `request`, the body left unread. */
+export async function streamFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(input, init);
+  } catch (error) {
+    if (init?.signal?.aborted) throw error;
+    throw new ApiError(0, UNAVAILABLE);
+  }
+  if (!response.ok) throw await toApiError(response);
+  return response;
+}
+
 export async function request<T>(
   path: string,
   init: { method?: string; body?: unknown; query?: QueryParams } = {},
@@ -64,7 +79,7 @@ export async function request<T>(
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     });
   } catch {
-    throw new ApiError(0, 'The server is unavailable. Check that the API is running.');
+    throw new ApiError(0, UNAVAILABLE);
   }
 
   if (!response.ok) throw await toApiError(response);

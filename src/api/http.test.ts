@@ -1,5 +1,5 @@
 import { api, apiError, http, HttpResponse, server } from '../test/server';
-import { ApiError, request, toQueryString } from './http';
+import { ApiError, request, streamFetch, toQueryString } from './http';
 
 describe('toQueryString', () => {
   it('skips empty values and repeats arrays', () => {
@@ -44,5 +44,34 @@ describe('request', () => {
   it('reports an unreachable server as status 0', async () => {
     server.use(http.get(api('/things'), () => HttpResponse.error()));
     await expect(request('/things')).rejects.toMatchObject({ status: 0 });
+  });
+});
+
+describe('streamFetch', () => {
+  it('returns the response unread', async () => {
+    server.use(http.post(api('/stream'), () => new HttpResponse('data: 1\n\n')));
+    const response = await streamFetch('/api/stream', { method: 'POST' });
+    expect(await response.text()).toBe('data: 1\n\n');
+  });
+
+  it('throws the same ApiErrors as request', async () => {
+    server.use(http.post(api('/stream'), () => apiError(404, 'No goal')));
+    await expect(streamFetch('/api/stream', { method: 'POST' })).rejects.toMatchObject({
+      status: 404,
+      message: 'No goal',
+    });
+
+    server.use(http.post(api('/stream'), () => HttpResponse.error()));
+    await expect(streamFetch('/api/stream', { method: 'POST' })).rejects.toMatchObject({
+      status: 0,
+    });
+  });
+
+  it('rethrows an abort as it is', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      streamFetch('/api/stream', { method: 'POST', signal: controller.signal }),
+    ).rejects.not.toBeInstanceOf(ApiError);
   });
 });

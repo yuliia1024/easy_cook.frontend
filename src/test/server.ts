@@ -12,4 +12,14 @@ export const apiError = (statusCode: number, message: string | string[]) =>
     { status: statusCode },
   );
 
+/** An AI SDK UI message stream (SSE) response made of `chunks`. */
+export const uiMessageStream = (chunks: object[]) =>
+  new HttpResponse(
+    [...chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`), 'data: [DONE]\n\n'].join(''),
+    {
+      status: 201,
+      headers: { 'Content-Type': 'text/event-stream', 'x-vercel-ai-ui-message-stream': 'v1' },
+    },
+  );
+
 export { http, HttpResponse };

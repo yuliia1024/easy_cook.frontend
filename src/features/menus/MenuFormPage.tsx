@@ -17,7 +17,13 @@ import { Field } from '../../components/Field';
 import { PageHeader } from '../../components/PageHeader';
 import { Spinner } from '../../components/Spinner';
 import { MEAL_TYPE_LABELS, toOptions } from '../../lib/labels';
-import { MAX_MEALS_PER_DAY, MAX_MENU_DAYS, MENU_MEAL_SERVINGS } from '../../lib/limits';
+import { upcomingDateRange } from '../../lib/dates';
+import {
+  MAX_MEALS_PER_DAY,
+  MAX_MENU_DAYS,
+  MENU_DATE_MAX_FUTURE_DAYS,
+  MENU_MEAL_SERVINGS,
+} from '../../lib/limits';
 import {
   emptyMeal,
   menuFormSchema,
@@ -143,6 +149,7 @@ function DayFields({ dayIndex, control, register, setValue, errors, onRemove }: 
   const watched = useWatch({ control, name: `days.${dayIndex}.meals` });
   const dayErrors = errors.days?.[dayIndex];
   const label = `Day ${dayIndex + 1}`;
+  const dateRange = upcomingDateRange(MENU_DATE_MAX_FUTURE_DAYS);
 
   return (
     <fieldset className="space-y-3 rounded-lg border border-stone-200 bg-white p-4">
@@ -151,12 +158,17 @@ function DayFields({ dayIndex, control, register, setValue, errors, onRemove }: 
         <Field
           label={`Date of day ${dayIndex + 1}`}
           htmlFor={`days.${dayIndex}.date`}
-          hint="Optional"
+          error={dayErrors?.date?.message}
+          hint="Optional; today up to a year ahead"
         >
           <input
             id={`days.${dayIndex}.date`}
             type="date"
             className="input"
+            min={dateRange.min}
+            max={dateRange.max}
+            aria-invalid={dayErrors?.date ? true : undefined}
+            aria-describedby={`days.${dayIndex}.date-msg`}
             {...register(`days.${dayIndex}.date`)}
           />
         </Field>

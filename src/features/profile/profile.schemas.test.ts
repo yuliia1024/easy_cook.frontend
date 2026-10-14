@@ -1,9 +1,9 @@
+import { toDateInputValue } from '../../lib/dates';
 import { buildGoal, buildProfile } from '../../test/fixtures';
 import {
   effectiveFromRange,
   manualGoalSchema,
   profileFormSchema,
-  toDateInputValue,
   toManualGoalFormValues,
   toManualGoalInput,
   toProfileFormValues,

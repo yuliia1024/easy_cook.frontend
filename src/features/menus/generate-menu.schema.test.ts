@@ -3,6 +3,7 @@ import {
   generateMenuSchema,
   toGenerateInput,
 } from './generate-menu.schema';
+import { dayFromToday } from '../../test/dates';
 
 const parse = (patch: object) =>
   generateMenuSchema.safeParse({ ...DEFAULT_GENERATE_VALUES, ...patch });
@@ -20,10 +21,10 @@ describe('generateMenuSchema', () => {
   });
 
   it('keeps the optional fields when given', () => {
-    const result = parse({ title: ' Week ', startDate: '2026-10-20', instructions: 'fish' });
+    const result = parse({ title: ' Week ', startDate: dayFromToday(0), instructions: 'fish' });
     expect(result.success && toGenerateInput(result.data)).toMatchObject({
       title: 'Week',
-      startDate: '2026-10-20',
+      startDate: dayFromToday(0),
       instructions: 'fish',
     });
   });
@@ -33,6 +34,8 @@ describe('generateMenuSchema', () => {
     [{ days: '15' }, 'At most 14 days'],
     [{ days: '2.5' }, 'Must be a whole number'],
     [{ mealTypes: [] }, 'Choose at least one meal'],
+    [{ startDate: dayFromToday(-1) }, 'Cannot be in the past'],
+    [{ startDate: dayFromToday(366) }, 'At most 365 days ahead'],
   ])('rejects %j', (patch, message) => {
     expect(parse(patch).error?.issues[0].message).toBe(message);
   });

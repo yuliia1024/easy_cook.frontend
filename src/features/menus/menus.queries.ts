@@ -1,12 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { menusApi } from '../../api/menus';
-import type {
-  GenerateMenuInput,
-  Menu,
-  MenuInput,
-  MenuVersionInput,
-  ReplaceMealInput,
-} from '../../api/types';
+import type { Menu, MenuInput, MenuVersionInput, ReplaceMealInput } from '../../api/types';
 
 export const menuKeys = {
   all: ['menus'] as const,
@@ -26,20 +20,20 @@ export function useMenu(id: string | undefined) {
   });
 }
 
-/** Every menu mutation returns the whole menu: cache it and refresh the list. */
-function useMenuMutation<T>(mutationFn: (input: T) => Promise<Menu>) {
+/** Caches a menu returned by the API and refreshes the list. */
+export function useCacheMenu(): (menu: Menu) => Promise<void> {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn,
-    onSuccess: (menu) => {
-      queryClient.setQueryData(menuKeys.detail(menu.id), menu);
-      return queryClient.invalidateQueries({ queryKey: menuKeys.list() });
-    },
-  });
+  return (menu) => {
+    queryClient.setQueryData(menuKeys.detail(menu.id), menu);
+    return queryClient.invalidateQueries({ queryKey: menuKeys.list() });
+  };
 }
 
-export const useGenerateMenu = () =>
-  useMenuMutation((input: GenerateMenuInput) => menusApi.generate(input));
+/** Every menu mutation returns the whole menu: cache it and refresh the list. */
+function useMenuMutation<T>(mutationFn: (input: T) => Promise<Menu>) {
+  const cacheMenu = useCacheMenu();
+  return useMutation({ mutationFn, onSuccess: cacheMenu });
+}
 
 /** Creates a menu, or adds the next version when `id` is given. */
 export const useSaveMenu = (id?: string) =>

@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import { formatNumber } from '../../lib/format';
 import { buildGoal, buildProfile } from '../../test/fixtures';
 import { renderPage } from '../../test/render';
-import { toDateInputValue } from './profile.schemas';
+import { toDateInputValue } from '../../lib/dates';
 import { api, apiError, http, HttpResponse, server } from '../../test/server';
 import { ProfilePage } from './ProfilePage';
 

@@ -7,13 +7,14 @@ import {
   toMenuVersionInput,
   type MenuFormValues,
 } from './menu-form.schema';
+import { dayFromToday } from '../../test/dates';
 
 const recipe = { id: '22222222-2222-4222-8222-222222222222', name: 'Soup' };
 const values = (patch: Partial<MenuFormValues> = {}): MenuFormValues => ({
   title: 'Week',
   notes: '',
   days: [
-    { date: '2026-10-20', meals: [{ ...emptyMeal(), recipe, servings: '1.5' }] },
+    { date: dayFromToday(7), meals: [{ ...emptyMeal(), recipe, servings: '1.5' }] },
     { date: '', meals: [{ ...emptyMeal(), mealType: 'dinner', recipe }] },
   ],
   ...patch,
@@ -28,7 +29,7 @@ describe('menuFormSchema', () => {
       days: [
         {
           dayIndex: 0,
-          date: '2026-10-20',
+          date: dayFromToday(7),
           meals: [{ mealType: 'lunch', recipeId: recipe.id, servings: 1.5 }],
         },
         {
@@ -66,6 +67,19 @@ describe('menuFormSchema', () => {
       menuFormSchema(true).safeParse(values({ days: [{ date: '', meals: [] }] })).error?.issues[0]
         .message,
     ).toBe('Add at least one meal');
+  });
+  it('accepts dates from today up to a year ahead', () => {
+    const dated = (date: string) =>
+      menuFormSchema(true).safeParse(
+        values({ days: [{ date, meals: [{ ...emptyMeal(), recipe }] }] }),
+      );
+
+    expect(dated(dayFromToday(0)).success).toBe(true);
+    expect(dated(dayFromToday(365)).success).toBe(true);
+    expect(dated(dayFromToday(-1)).error?.issues).toEqual([
+      expect.objectContaining({ path: ['days', 0, 'date'], message: 'Cannot be in the past' }),
+    ]);
+    expect(dated(dayFromToday(366)).error?.issues[0].message).toBe('At most 365 days ahead');
   });
 });
 

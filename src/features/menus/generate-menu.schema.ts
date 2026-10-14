@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import type { GenerateMenuInput, MealType } from '../../api/types';
+import { upcomingDateSchema } from '../../lib/dates';
 import { parseOptionalNumber } from '../../lib/format';
 import { MEAL_TYPE_LABELS } from '../../lib/labels';
 import {
   MAX_MEALS_PER_DAY,
   MAX_MENU_DAYS,
+  MENU_DATE_MAX_FUTURE_DAYS,
   MENU_NOTES_MAX_LENGTH,
   MENU_TITLE_MAX_LENGTH,
 } from '../../lib/limits';
@@ -30,8 +32,8 @@ export const generateMenuSchema = z.object({
     .array(z.enum(keys(MEAL_TYPE_LABELS)))
     .min(1, 'Choose at least one meal')
     .max(MAX_MEALS_PER_DAY, `At most ${MAX_MEALS_PER_DAY} meals`),
-  /** `YYYY-MM-DD` from a date input, or empty for an undated menu. */
-  startDate: z.string(),
+  /** `YYYY-MM-DD` from a date input, today up to a year ahead, or empty for an undated menu. */
+  startDate: upcomingDateSchema(MENU_DATE_MAX_FUTURE_DAYS),
   instructions: z
     .string()
     .trim()

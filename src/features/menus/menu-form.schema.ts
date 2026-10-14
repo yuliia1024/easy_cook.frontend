@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import type { Menu, MenuInput, MenuVersionInput } from '../../api/types';
+import { upcomingDateSchema } from '../../lib/dates';
 import { hasMaxDecimals, parseOptionalNumber } from '../../lib/format';
 import { MEAL_TYPE_LABELS } from '../../lib/labels';
 import {
   MAX_MEALS_PER_DAY,
   MAX_MENU_DAYS,
+  MENU_DATE_MAX_FUTURE_DAYS,
   MENU_MEAL_SERVINGS,
   MENU_NOTES_MAX_LENGTH,
   MENU_TITLE_MAX_LENGTH,
@@ -46,8 +48,8 @@ const mealSchema = z
   });
 
 const daySchema = z.object({
-  /** `YYYY-MM-DD` from a date input, or empty. */
-  date: z.string(),
+  /** `YYYY-MM-DD` from a date input, today up to a year ahead, or empty. */
+  date: upcomingDateSchema(MENU_DATE_MAX_FUTURE_DAYS),
   meals: z
     .array(mealSchema)
     .min(1, 'Add at least one meal')

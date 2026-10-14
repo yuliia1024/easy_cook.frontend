@@ -1,3 +1,5 @@
+import type { UIMessage } from 'ai';
+
 // Mirrors the backend response DTOs (`easy_cook.backend/src/entrypoints/api`). Dates come as ISO strings.
 
 export type FoodState =
@@ -331,6 +333,37 @@ export interface GenerateMenuInput {
   startDate?: string | null;
   instructions?: string | null;
 }
+
+/** A meal of the assistant's current proposal, before the backend validated it. */
+export interface ProposedMeal {
+  mealType: MealType;
+  recipeId: string | null;
+  /** Null when the assistant named an unknown recipe. */
+  recipeName: string | null;
+  servings: number;
+}
+
+export interface ProposedDay {
+  attempt: number;
+  dayIndex: number;
+  /** `YYYY-MM-DD`. */
+  date: string | null;
+  meals: ProposedMeal[];
+}
+
+/**
+ * Data parts of `POST /menus/generate` (AI SDK UI message stream). Parts with the same id replace
+ * each other: `status`, `issues` and `day-<n>` show the latest attempt; `menu` is the saved menu.
+ */
+export type MenuGenerationDataParts = {
+  status: { attempt: number; maxAttempts: number };
+  day: ProposedDay;
+  /** Why the previous attempt was rejected; the assistant is trying again. */
+  issues: { attempt: number; messages: string[] };
+  menu: Menu;
+};
+
+export type MenuGenerationMessage = UIMessage<never, MenuGenerationDataParts>;
 
 export interface ReplaceMealInput {
   versionId?: string | null;

@@ -8,9 +8,10 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { Field } from '../../components/Field';
 import { PageHeader } from '../../components/PageHeader';
 import { Spinner } from '../../components/Spinner';
+import { upcomingDateRange } from '../../lib/dates';
 import { formatDate } from '../../lib/format';
 import { MEAL_TYPE_LABELS, toOptions } from '../../lib/labels';
-import { MAX_MENU_DAYS } from '../../lib/limits';
+import { MAX_MENU_DAYS, MENU_DATE_MAX_FUTURE_DAYS } from '../../lib/limits';
 import {
   DEFAULT_GENERATE_VALUES,
   generateMenuSchema,
@@ -18,7 +19,9 @@ import {
   type GenerateMenuOutput,
   type GenerateMenuValues,
 } from './generate-menu.schema';
-import { useGenerateMenu, useMenus } from './menus.queries';
+import { GenerationProgress } from './GenerationProgress';
+import { useMenus } from './menus.queries';
+import { useMenuGeneration } from './use-menu-generation';
 
 export function MenusPage() {
   const menus = useMenus();
@@ -82,7 +85,8 @@ export function MenusPage() {
 
 function GenerateMenuForm() {
   const navigate = useNavigate();
-  const generate = useGenerateMenu();
+  const generation = useMenuGeneration((menu) => navigate(`/menus/${menu.id}`));
+  const dateRange = upcomingDateRange(MENU_DATE_MAX_FUTURE_DAYS);
   const {
     register,
     handleSubmit,
@@ -93,9 +97,7 @@ function GenerateMenuForm() {
   });
 
   const onSubmit = (values: GenerateMenuOutput): void => {
-    generate.mutate(toGenerateInput(values), {
-      onSuccess: (menu) => navigate(`/menus/${menu.id}`),
-    });
+    generation.generate(toGenerateInput(values));
   };
 
   return (
@@ -134,8 +136,22 @@ function GenerateMenuForm() {
         </div>
         {errors.mealTypes && <p className="text-xs text-red-600">{errors.mealTypes.message}</p>}
       </fieldset>
-      <Field label="First day" htmlFor="startDate" hint="Optional">
-        <input id="startDate" type="date" className="input" {...register('startDate')} />
+      <Field
+        label="First day"
+        htmlFor="startDate"
+        error={errors.startDate?.message}
+        hint="Optional; today up to a year ahead"
+      >
+        <input
+          id="startDate"
+          type="date"
+          className="input"
+          min={dateRange.min}
+          max={dateRange.max}
+          aria-invalid={errors.startDate ? true : undefined}
+          aria-describedby="startDate-msg"
+          {...register('startDate')}
+        />
       </Field>
       <Field label="Title" htmlFor="title" error={errors.title?.message} hint="Optional">
         <input id="title" className="input" {...register('title')} />
@@ -148,10 +164,20 @@ function GenerateMenuForm() {
       >
         <textarea id="instructions" rows={2} className="input" {...register('instructions')} />
       </Field>
-      {generate.isError && <ErrorAlert error={generate.error} title="Could not plan the menu" />}
-      <Button type="submit" loading={generate.isPending}>
-        Generate
-      </Button>
+      {generation.progress && (
+        <GenerationProgress progress={generation.progress} active={generation.isGenerating} />
+      )}
+      {generation.error && <ErrorAlert error={generation.error} title="Could not plan the menu" />}
+      <div className="flex gap-2">
+        <Button type="submit" loading={generation.isGenerating}>
+          Generate
+        </Button>
+        {generation.isGenerating && (
+          <Button variant="secondary" onClick={() => void generation.stop()}>
+            Stop
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

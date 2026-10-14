@@ -52,5 +52,8 @@ export const MAX_MENU_DAYS = 14;
 export const MAX_MEALS_PER_DAY = 8;
 export const MENU_MEAL_SERVINGS = { min: 0.25, max: 10 } as const;
 
+// MENU_DATE_MAX_FUTURE_DAYS in the backend: menu dates are today up to a year ahead.
+export const MENU_DATE_MAX_FUTURE_DAYS = 365;
+
 // MESSAGE_MAX_LENGTH in the backend (`constants/chat.ts`).
 export const MESSAGE_MAX_LENGTH = 4000;
