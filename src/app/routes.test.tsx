@@ -14,6 +14,23 @@ describe('routes', () => {
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     expect(nav).toHaveTextContent('Foods');
     expect(nav).toHaveTextContent('Profile & goals');
+    expect(nav).toHaveTextContent('Menus');
+    expect(nav).toHaveTextContent('Chat');
+    expect(nav).toHaveTextContent('Preferences');
+  });
+
+  it.each([
+    ['/menus', 'Menus'],
+    ['/chat', 'Chat'],
+    ['/preferences', 'Dietary preferences'],
+  ])('opens %s', async (path, heading) => {
+    server.use(
+      http.get(api('/menus'), () => HttpResponse.json([])),
+      http.get(api('/conversations'), () => HttpResponse.json([])),
+      http.get(api('/preferences'), () => HttpResponse.json([])),
+    );
+    renderRoutes(routes, path);
+    expect(await screen.findByRole('heading', { name: heading, level: 1 })).toBeInTheDocument();
   });
 
   it('shows a not found page', async () => {

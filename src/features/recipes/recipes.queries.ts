@@ -10,11 +10,12 @@ export const recipeKeys = {
     [...recipeKeys.all, 'nutrition', id, includeOptional] as const,
 };
 
-export function useRecipes(query: RecipeQuery) {
+export function useRecipes(query: RecipeQuery, enabled = true) {
   return useQuery({
     queryKey: recipeKeys.list(query),
     queryFn: () => recipesApi.list(query),
     placeholderData: keepPreviousData,
+    enabled,
   });
 }
 

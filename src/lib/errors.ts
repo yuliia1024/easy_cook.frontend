@@ -4,6 +4,7 @@ const STATUS_MESSAGES: Record<number, string> = {
   400: 'Validation failed.',
   404: 'Not found.',
   409: 'This record already exists.',
+  422: 'The request could not be completed.',
   503: 'The database is unavailable.',
 };
 

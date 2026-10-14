@@ -17,6 +17,12 @@ describe('errorMessage', () => {
     expect(errorMessage(new ApiError(400, message))).toBe(message);
   });
 
+  it('uses the server message of an unprocessable request, with a fallback', () => {
+    const message = 'No lunch recipes match the dietary preferences';
+    expect(errorMessage(new ApiError(422, message))).toBe(message);
+    expect(errorMessage(new ApiError(422, ''))).toBe('The request could not be completed.');
+  });
+
   it('summarises validation errors and exposes the details', () => {
     const error = new ApiError(400, 'Bad Request', ['name should not be empty']);
     expect(errorMessage(error)).toBe('Validation failed.');

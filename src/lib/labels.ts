@@ -7,6 +7,8 @@ import type {
   Goal,
   Macro,
   MealType,
+  MenuGeneratedBy,
+  PreferenceType,
   Sex,
 } from '../api/types';
 
@@ -80,6 +82,19 @@ export const MACRO_UNITS: Record<Macro, string> = {
   proteinG: 'g',
   fatG: 'g',
   carbsG: 'g',
+};
+
+export const PREFERENCE_TYPE_LABELS: Record<PreferenceType, string> = {
+  diet: 'Diet',
+  allergy: 'Allergy',
+  excluded_ingredient: 'Excluded ingredient',
+  disliked_food: 'Disliked food',
+};
+
+export const MENU_GENERATED_BY_LABELS: Record<MenuGeneratedBy, string> = {
+  manual: 'by hand',
+  stub: 'stub planner',
+  llm: 'AI assistant',
 };
 
 export const MACROS: Macro[] = ['kcal', 'proteinG', 'fatG', 'carbsG'];

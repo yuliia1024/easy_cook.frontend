@@ -64,6 +64,48 @@ export const routes: RouteObject[] = [
           Component: (await import('../features/profile/ProfilePage')).ProfilePage,
         }),
       },
+      {
+        path: 'menus',
+        lazy: async () => ({
+          Component: (await import('../features/menus/MenusPage')).MenusPage,
+        }),
+      },
+      {
+        path: 'menus/new',
+        lazy: async () => ({
+          Component: (await import('../features/menus/MenuFormPage')).MenuFormPage,
+        }),
+      },
+      {
+        path: 'menus/:id',
+        lazy: async () => ({
+          Component: (await import('../features/menus/MenuDetailsPage')).MenuDetailsPage,
+        }),
+      },
+      {
+        path: 'menus/:id/edit',
+        lazy: async () => ({
+          Component: (await import('../features/menus/MenuFormPage')).MenuFormPage,
+        }),
+      },
+      {
+        path: 'chat',
+        lazy: async () => ({
+          Component: (await import('../features/chat/ChatPage')).ChatPage,
+        }),
+      },
+      {
+        path: 'chat/:id',
+        lazy: async () => ({
+          Component: (await import('../features/chat/ChatPage')).ChatPage,
+        }),
+      },
+      {
+        path: 'preferences',
+        lazy: async () => ({
+          Component: (await import('../features/preferences/PreferencesPage')).PreferencesPage,
+        }),
+      },
       { path: '*', element: <NotFound /> },
     ],
   },

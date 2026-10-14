@@ -1,7 +1,8 @@
 # Easy Cook web app
 
 UI for the Easy Cook backend (`../easy_cook.backend`): food catalog, recipe catalog with calories and macros per
-recipe and per serving, profile and daily nutrition goals. Single user, no auth.
+recipe and per serving, profile and daily nutrition goals, dietary preferences, versioned menus and a chat with
+the assistant (a deterministic stub until the LLM stage). Single user, no auth.
 
 Vite 8 · React 19 · TypeScript 6 · React Router 7 · TanStack Query 5 · react-hook-form + zod 4 ·
 Tailwind CSS 4 · Vitest + Testing Library + MSW. UI language: English.
@@ -30,6 +31,11 @@ database and seed). The dev server proxies `/api` to `API_PROXY_TARGET`
 | `/recipes/:id` | calories and macros per serving, for the whole recipe and per ingredient; optional ingredients on demand |
 | `/recipes/new`, `/recipes/:id/edit` | form, ingredients picked from the food catalog, live calories and macros preview |
 | `/profile` | profile, current goal, rule based preview + save, manual goal, goal history |
+| `/preferences` | diets, allergies, excluded and disliked foods; menus follow them |
+| `/menus` | saved menus (draft / confirmed), generate a menu for the current goal (days, meals, start date, wishes) |
+| `/menus/:id` | versions (newest first), daily average vs the goal, issues, days with meals and totals; replace a meal, confirm a version, rename, delete |
+| `/menus/new`, `/menus/:id/edit` | menu by hand: days, meals, recipes from the catalog, servings; editing saves a new version and asks to replace deleted recipes |
+| `/chat`, `/chat/:id` | conversations with the assistant; "plan a menu for N days" creates a menu linked from the reply |
 
 Nutrition rules worth knowing:
 
@@ -38,6 +44,8 @@ Nutrition rules worth knowing:
 - The recipe form preview (`src/lib/nutrition.ts`) uses the same maths as the backend; the saved
   recipe always shows the server result (`GET /recipes/:id/nutrition`).
 - Daily goals are reference values for meal planning, not medical advice; the page says so.
+- Menus never change in place: every edit, generated menu or replaced meal is a new version, and only an
+  explicit "Confirm" makes a version the menu (the backend rejects versions that break a dietary rule).
 
 ## Structure
 
@@ -46,7 +54,7 @@ src/
   api/          fetch client (`ApiError`), endpoint functions, types mirroring the backend DTOs
   app/          routes (lazy per page), query client
   components/   shared UI: Button, Field, MacrosSummary, ErrorAlert, Spinner, Pagination...
-  features/     foods/, recipes/, profile/ - pages, `*.queries.ts` (TanStack Query), form schemas
+  features/     foods/, recipes/, profile/, preferences/, menus/, chat/ - pages, `*.queries.ts` (TanStack Query), form schemas
   lib/          labels (enum -> English), formatting, nutrition estimate, error messages
   test/         MSW server, fixtures, render helpers
 ```

@@ -40,3 +40,17 @@ export const MAX_RECIPE_INGREDIENTS = 100;
 // MAX_SERVING_WEIGHT_G and MAX_SERVING_KCAL in the backend (all ingredients, optional included).
 export const MAX_SERVING_WEIGHT_G = 2000;
 export const MAX_SERVING_KCAL = 2500;
+
+// PREFERENCE_VALUE_MAX_LENGTH in the backend.
+export const PREFERENCE_VALUE_MAX_LENGTH = 120;
+
+// MENU_TITLE_MAX_LENGTH, MENU_NOTES_MAX_LENGTH, MAX_MENU_DAYS, MAX_MEALS_PER_DAY and
+// MENU_MEAL_SERVINGS in the backend (`constants/menu.ts`).
+export const MENU_TITLE_MAX_LENGTH = 255;
+export const MENU_NOTES_MAX_LENGTH = 2000;
+export const MAX_MENU_DAYS = 14;
+export const MAX_MEALS_PER_DAY = 8;
+export const MENU_MEAL_SERVINGS = { min: 0.25, max: 10 } as const;
+
+// MESSAGE_MAX_LENGTH in the backend (`constants/chat.ts`).
+export const MESSAGE_MAX_LENGTH = 4000;
