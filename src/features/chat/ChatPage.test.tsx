@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import {
   buildConversation,
   buildConversationSummary,
@@ -8,7 +8,7 @@ import {
   VERSION_ID,
 } from '../../test/fixtures';
 import { renderRoutes } from '../../test/render';
-import { api, apiError, http, HttpResponse, server } from '../../test/server';
+import { api, apiError, http, HttpResponse, server, uiMessageStream } from '../../test/server';
 import { ChatPage } from './ChatPage';
 
 const routes = [
@@ -35,30 +35,34 @@ describe('ChatPage', () => {
     expect(router.state.location.pathname).toBe(`/chat/${CONVERSATION_ID}`);
   });
 
-  it('sends with Enter, keeps Shift+Enter as a new line and links the planned menu', async () => {
+  it('sends with Enter, keeps Shift+Enter as a new line and streams the reply', async () => {
     let sent: unknown;
-    const answered = buildConversation({
-      title: 'Plan a menu',
-      menuId: MENU_ID,
-      messages: [
-        buildMessage({ content: 'Plan a menu\nfor 3 days' }),
-        buildMessage({
-          id: 'reply',
-          role: 'assistant',
-          content: 'Planning a 3-day menu.\n\n"Menu for 3 days" is ready as a draft.',
-          menuVersionId: VERSION_ID,
-          menuId: MENU_ID,
-        }),
-      ],
-    });
+    let answered = false;
     server.use(
       http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
       http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
-        HttpResponse.json(buildConversation()),
+        HttpResponse.json(
+          buildConversation({
+            messages: answered
+              ? [
+                  buildMessage({ content: 'Plan a menu\nfor 3 days' }),
+                  buildMessage({ id: 'reply', role: 'assistant', content: 'Day 1: oatmeal' }),
+                ]
+              : [],
+          }),
+        ),
       ),
       http.post(api(`/conversations/${CONVERSATION_ID}/messages`), async ({ request }) => {
         sent = await request.json();
-        return HttpResponse.json(answered);
+        answered = true;
+        return uiMessageStream([
+          { type: 'start' },
+          { type: 'text-start', id: 'text' },
+          { type: 'text-delta', id: 'text', delta: 'Day 1: ' },
+          { type: 'text-delta', id: 'text', delta: 'oatmeal' },
+          { type: 'text-end', id: 'text' },
+          { type: 'finish' },
+        ]);
       }),
     );
     const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
@@ -67,16 +71,47 @@ describe('ChatPage', () => {
     await user.type(input, 'Plan a menu{Shift>}{Enter}{/Shift}for 3 days{Enter}');
 
     const messages = await screen.findByRole('list', { name: 'Messages' });
-    expect(within(messages).getByText(/ready as a draft/)).toBeInTheDocument();
+    expect(await within(messages).findByText('Day 1: oatmeal')).toBeInTheDocument();
+    await waitFor(() => expect(within(messages).getAllByRole('listitem')).toHaveLength(2));
     expect(sent).toEqual({ content: 'Plan a menu\nfor 3 days' });
     expect(input).toHaveValue('');
-    expect(screen.getByRole('link', { name: 'Linked menu →' })).toHaveAttribute(
+  });
+
+  it('shows the linked menu of the conversation', async () => {
+    server.use(
+      http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+        HttpResponse.json(buildConversation({ menuId: MENU_ID })),
+      ),
+    );
+    renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+    expect(await screen.findByRole('link', { name: 'Linked menu →' })).toHaveAttribute(
       'href',
       `/menus/${MENU_ID}`,
     );
+  });
 
-    await user.click(within(messages).getByRole('link', { name: 'Open menu' }));
-    expect(await screen.findByText('menu page')).toBeInTheDocument();
+  it('shows why the reply failed', async () => {
+    server.use(
+      http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+        HttpResponse.json(buildConversation()),
+      ),
+      http.post(api(`/conversations/${CONVERSATION_ID}/messages`), () =>
+        uiMessageStream([
+          { type: 'start' },
+          { type: 'text-start', id: 'text' },
+          { type: 'text-delta', id: 'text', delta: 'Day 1: ' },
+          { type: 'error', errorText: 'An error occurred.' },
+        ]),
+      ),
+    );
+    const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+    await user.type(await screen.findByLabelText('Message'), 'Hi{Enter}');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('An error occurred.');
   });
 
   it('links every reply to the menu it planned, not to the latest one', async () => {

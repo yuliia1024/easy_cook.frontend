@@ -12,8 +12,8 @@ import {
   useConversations,
   useCreateConversation,
   useDeleteConversation,
-  useSendMessage,
 } from './chat.queries';
+import { useReplyStream } from './use-reply-stream';
 
 /** `/chat` and `/chat/:id`. */
 export function ChatPage() {
@@ -21,9 +21,7 @@ export function ChatPage() {
 
   return (
     <>
-      <PageHeader title="Chat">
-        The assistant is a placeholder until the AI stage: ask it to “plan a menu for 3 days”.
-      </PageHeader>
+      <PageHeader title="Chat">Ask the AI assistant about meals, recipes and menus.</PageHeader>
       <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
         <ConversationList activeId={id} />
         {id ? (
@@ -103,25 +101,27 @@ function ConversationView({ id }: { id: string }) {
 }
 
 function Messages({ conversation }: { conversation: Conversation }) {
-  const send = useSendMessage(conversation.id);
+  const reply = useReplyStream(conversation.id);
   const [draft, setDraft] = useState('');
   const content = draft.trim();
   const tooLong = draft.length > MESSAGE_MAX_LENGTH;
+  const messages = [...conversation.messages, ...reply.pending];
 
-  const submit = (): void => {
-    if (!content || tooLong || send.isPending) return;
-    send.mutate(content, { onSuccess: () => setDraft('') });
+  const submit = async (): Promise<void> => {
+    if (!content || tooLong || reply.isSending) return;
+    setDraft('');
+    if (!(await reply.send(content))) setDraft(draft);
   };
 
   const onSubmit = (event: FormEvent): void => {
     event.preventDefault();
-    submit();
+    void submit();
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      submit();
+      void submit();
     }
   };
 
@@ -139,11 +139,11 @@ function Messages({ conversation }: { conversation: Conversation }) {
         )}
       </div>
 
-      {conversation.messages.length === 0 ? (
+      {messages.length === 0 ? (
         <p className="text-sm text-stone-500">No messages yet. Say hello.</p>
       ) : (
         <ol aria-label="Messages" className="space-y-3">
-          {conversation.messages.map((message) => (
+          {messages.map((message) => (
             <li
               key={message.id}
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -164,7 +164,7 @@ function Messages({ conversation }: { conversation: Conversation }) {
               </div>
             </li>
           ))}
-          {send.isPending && (
+          {reply.isWaiting && (
             <li className="text-sm text-stone-500" role="status">
               The assistant is answering…
             </li>
@@ -172,7 +172,7 @@ function Messages({ conversation }: { conversation: Conversation }) {
         </ol>
       )}
 
-      {send.isError && <ErrorAlert error={send.error} title="The message was not sent" />}
+      {reply.error && <ErrorAlert error={reply.error} title="The message was not sent" />}
 
       <form onSubmit={onSubmit} className="space-y-2">
         <label htmlFor="message" className="sr-only">
@@ -193,7 +193,7 @@ function Messages({ conversation }: { conversation: Conversation }) {
           <p id="message-msg" className={`text-xs ${tooLong ? 'text-red-600' : 'text-stone-500'}`}>
             {draft.length} / {MESSAGE_MAX_LENGTH}
           </p>
-          <Button type="submit" loading={send.isPending} disabled={!content || tooLong}>
+          <Button type="submit" loading={reply.isSending} disabled={!content || tooLong}>
             Send
           </Button>
         </div>

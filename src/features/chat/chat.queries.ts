@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { conversationsApi } from '../../api/conversations';
 import type { ConversationInput } from '../../api/types';
-import { menuKeys } from '../menus/menus.queries';
 
 export const chatKeys = {
   all: ['conversations'] as const,
@@ -39,21 +38,6 @@ export function useDeleteConversation() {
     onSuccess: (_, id) => {
       queryClient.removeQueries({ queryKey: chatKeys.detail(id) });
       return queryClient.invalidateQueries({ queryKey: chatKeys.list() });
-    },
-  });
-}
-
-/** The reply may have planned a menu, so menus are refreshed too. */
-export function useSendMessage(id: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (content: string) => conversationsApi.send(id, content),
-    onSuccess: (conversation) => {
-      queryClient.setQueryData(chatKeys.detail(id), conversation);
-      return Promise.all([
-        queryClient.invalidateQueries({ queryKey: chatKeys.list() }),
-        queryClient.invalidateQueries({ queryKey: menuKeys.all }),
-      ]);
     },
   });
 }
