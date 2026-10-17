@@ -25,6 +25,7 @@ database and seed). The dev server proxies `/api` to `API_PROXY_TARGET`
 
 | Path | |
 |---|---|
+| `/chat`, `/chat/:id` | home (`/` opens it); conversations with the assistant; a menu linked to a conversation or reply opens from it |
 | `/foods` | search by name, filter by state and source, calories and macros per 100 g |
 | `/foods/:id`, `/foods/new`, `/foods/:id/edit` | details and form; an empty value is *unknown* (`null`), not 0 |
 | `/recipes` | search, meal type, diet tags (all must match), calories and macros per serving |
@@ -32,10 +33,8 @@ database and seed). The dev server proxies `/api` to `API_PROXY_TARGET`
 | `/recipes/new`, `/recipes/:id/edit` | form, ingredients picked from the food catalog, live calories and macros preview |
 | `/profile` | profile, current goal, rule based preview + save, manual goal, goal history |
 | `/preferences` | diets, allergies, excluded and disliked foods; menus follow them |
-| `/menus` | saved menus (draft / confirmed), generate a menu for the current goal (days, meals, start date, wishes) |
-| `/menus/:id` | versions (newest first), daily average vs the goal, issues, days with meals and totals; replace a meal, confirm a version, rename, delete |
-| `/menus/new`, `/menus/:id/edit` | menu by hand: days, meals, recipes from the catalog, servings; editing saves a new version and asks to replace deleted recipes |
-| `/chat`, `/chat/:id` | conversations with the assistant; "plan a menu for N days" creates a menu linked from the reply |
+| `/menus` | saved menus (draft / confirmed) |
+| `/menus/:id` | versions (newest first), daily average vs the goal, issues, days with meals and totals; rename, confirm a version, delete |
 
 Nutrition rules worth knowing:
 
@@ -44,8 +43,9 @@ Nutrition rules worth knowing:
 - The recipe form preview (`src/lib/nutrition.ts`) uses the same maths as the backend; the saved
   recipe always shows the server result (`GET /recipes/:id/nutrition`).
 - Daily goals are reference values for meal planning, not medical advice; the page says so.
-- Menus never change in place: every edit, generated menu or replaced meal is a new version, and only an
-  explicit "Confirm" makes a version the menu (the backend rejects versions that break a dietary rule).
+- The web app does not create menus or change their content: it shows the saved ones. A menu keeps its
+  versions, and only an explicit "Confirm" makes a version the menu (the backend rejects versions that
+  break a dietary rule).
 
 ## Structure
 

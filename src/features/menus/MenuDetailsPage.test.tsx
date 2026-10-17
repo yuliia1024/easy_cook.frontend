@@ -73,22 +73,18 @@ describe('MenuDetailsPage', () => {
     expect(screen.getByRole('combobox')).toHaveTextContent('v1 · stub planner');
   });
 
-  it('replaces a meal of the shown version and shows the new version', async () => {
-    let body: unknown;
-    const v2 = buildMenuVersion({ id: 'v2', versionNumber: 2, notes: 'Replaced with soup.' });
-    server.use(
-      http.get(api(`/menus/${MENU_ID}`), () => HttpResponse.json(buildMenu())),
-      http.post(api(`/menus/${MENU_ID}/replace-meal`), async ({ request }) => {
-        body = await request.json();
-        return HttpResponse.json(buildMenu({ versions: [v2, buildMenuVersion()] }));
-      }),
-    );
-    const { user } = render();
+  it('offers no way to edit the menu or replace a meal', async () => {
+    server.use(http.get(api(`/menus/${MENU_ID}`), () => HttpResponse.json(buildMenu())));
+    render();
 
-    await user.click(await screen.findByRole('button', { name: 'Replace Lunch on day 1' }));
-
-    expect(await screen.findByText('Replaced with soup.')).toBeInTheDocument();
-    expect(body).toEqual({ versionId: VERSION_ID, dayIndex: 0, position: 0 });
+    await screen.findByRole('region', { name: 'Day 1 · 20 Oct 2026' });
+    expect(screen.queryByRole('link', { name: /edit/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /replace/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Rename',
+      'Delete',
+      'Confirm this version',
+    ]);
   });
 
   it('confirms a version and shows a rejection', async () => {

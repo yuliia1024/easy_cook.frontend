@@ -44,16 +44,5 @@ export const MAX_SERVING_KCAL = 2500;
 // PREFERENCE_VALUE_MAX_LENGTH in the backend.
 export const PREFERENCE_VALUE_MAX_LENGTH = 120;
 
-// MENU_TITLE_MAX_LENGTH, MENU_NOTES_MAX_LENGTH, MAX_MENU_DAYS, MAX_MEALS_PER_DAY and
-// MENU_MEAL_SERVINGS in the backend (`constants/menu.ts`).
-export const MENU_TITLE_MAX_LENGTH = 255;
-export const MENU_NOTES_MAX_LENGTH = 2000;
-export const MAX_MENU_DAYS = 14;
-export const MAX_MEALS_PER_DAY = 8;
-export const MENU_MEAL_SERVINGS = { min: 0.25, max: 10 } as const;
-
-// MENU_DATE_MAX_FUTURE_DAYS in the backend: menu dates are today up to a year ahead.
-export const MENU_DATE_MAX_FUTURE_DAYS = 365;
-
 // MESSAGE_MAX_LENGTH in the backend (`constants/chat.ts`).
 export const MESSAGE_MAX_LENGTH = 4000;

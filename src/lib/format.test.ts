@@ -1,4 +1,4 @@
-import { formatNumber, hasMaxDecimals, parseOptionalNumber } from './format';
+import { formatDate, formatNumber, hasMaxDecimals, parseOptionalNumber } from './format';
 
 describe('formatNumber', () => {
   it('shows unknown values as a dash, not 0', () => {
@@ -9,6 +9,12 @@ describe('formatNumber', () => {
 
   it('keeps one decimal with a dot as the separator', () => {
     expect(formatNumber(12.345)).toBe('12.3');
+  });
+});
+
+describe('formatDate', () => {
+  it('shows the date without the time', () => {
+    expect(formatDate(new Date(2026, 0, 15, 23, 30).toISOString())).toBe('15 Jan 2026');
   });
 });
 

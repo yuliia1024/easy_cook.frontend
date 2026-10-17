@@ -2,20 +2,13 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { Menu, MenuDay, MenuIssue, MenuVersion } from '../../api/types';
 import { Button } from '../../components/Button';
-import { buttonClass } from '../../components/button-class';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { MacrosSummary } from '../../components/MacrosSummary';
 import { PageHeader } from '../../components/PageHeader';
 import { Spinner } from '../../components/Spinner';
 import { formatDate, formatNumber } from '../../lib/format';
 import { MEAL_TYPE_LABELS, MENU_GENERATED_BY_LABELS } from '../../lib/labels';
-import {
-  useConfirmMenuVersion,
-  useDeleteMenu,
-  useMenu,
-  useRenameMenu,
-  useReplaceMeal,
-} from './menus.queries';
+import { useConfirmMenuVersion, useDeleteMenu, useMenu, useRenameMenu } from './menus.queries';
 
 const dayDate = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 
@@ -35,8 +28,7 @@ function MenuDetails({ menu }: { menu: Menu }) {
   const rename = useRenameMenu(menu.id);
   const remove = useDeleteMenu();
   const confirm = useConfirmMenuVersion(menu.id);
-  const replace = useReplaceMeal(menu.id);
-  const failed = [rename, remove, confirm, replace].find((mutation) => mutation.isError);
+  const failed = [rename, remove, confirm].find((mutation) => mutation.isError);
 
   const onRename = (): void => {
     const title = window.prompt('Menu title', menu.title)?.trim();
@@ -46,13 +38,6 @@ function MenuDetails({ menu }: { menu: Menu }) {
   const onDelete = (): void => {
     if (!window.confirm(`Delete the menu “${menu.title}” with all its versions?`)) return;
     remove.mutate(menu.id, { onSuccess: () => navigate('/menus') });
-  };
-
-  const onReplace = (dayIndex: number, position: number): void => {
-    replace.mutate(
-      { versionId: version.id, dayIndex, position },
-      { onSuccess: (updated) => setSelectedId(updated.versions[0].id) },
-    );
   };
 
   return (
@@ -67,9 +52,6 @@ function MenuDetails({ menu }: { menu: Menu }) {
             <Button variant="secondary" onClick={onRename} loading={rename.isPending}>
               Rename
             </Button>
-            <Link to={`/menus/${menu.id}/edit`} className={buttonClass('secondary')}>
-              Edit as new version
-            </Link>
             <Button variant="danger" onClick={onDelete} loading={remove.isPending}>
               Delete
             </Button>
@@ -108,7 +90,7 @@ function MenuDetails({ menu }: { menu: Menu }) {
               {version.isConfirmed ? 'Confirmed' : 'Confirm this version'}
             </Button>
           </div>
-          <VersionView version={version} onReplace={onReplace} replacing={replace.isPending} />
+          <VersionView version={version} />
         </>
       ) : (
         <p className="text-sm text-stone-500">This menu has no versions.</p>
@@ -117,13 +99,7 @@ function MenuDetails({ menu }: { menu: Menu }) {
   );
 }
 
-interface VersionViewProps {
-  version: MenuVersion;
-  onReplace: (dayIndex: number, position: number) => void;
-  replacing: boolean;
-}
-
-function VersionView({ version, onReplace, replacing }: VersionViewProps) {
+function VersionView({ version }: { version: MenuVersion }) {
   const goal = version.nutritionGoal;
 
   return (
@@ -152,8 +128,6 @@ function VersionView({ version, onReplace, replacing }: VersionViewProps) {
           day={day}
           goalKcal={goal?.caloriesKcal ?? null}
           issues={version.issues}
-          onReplace={onReplace}
-          replacing={replacing}
         />
       ))}
     </div>
@@ -181,11 +155,9 @@ interface DayViewProps {
   day: MenuDay;
   goalKcal: number | null;
   issues: MenuIssue[];
-  onReplace: (dayIndex: number, position: number) => void;
-  replacing: boolean;
 }
 
-function DayView({ day, goalKcal, issues, onReplace, replacing }: DayViewProps) {
+function DayView({ day, goalKcal, issues }: DayViewProps) {
   const title = `Day ${day.dayIndex + 1}${day.date ? ` · ${dayDate.format(new Date(day.date))}` : ''}`;
   const hasError = (position: number): boolean =>
     issues.some(
@@ -208,9 +180,6 @@ function DayView({ day, goalKcal, issues, onReplace, replacing }: DayViewProps) 
             <th className="px-3 py-2 text-right">P</th>
             <th className="px-3 py-2 text-right">F</th>
             <th className="px-3 py-2 text-right">C</th>
-            <th className="px-3 py-2">
-              <span className="sr-only">Actions</span>
-            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-stone-100">
@@ -250,16 +219,6 @@ function DayView({ day, goalKcal, issues, onReplace, replacing }: DayViewProps) 
               <td className="px-3 py-2 text-right tabular-nums">
                 {formatNumber(meal.nutrition.carbsG)}
               </td>
-              <td className="px-3 py-2 text-right">
-                <Button
-                  variant="ghost"
-                  disabled={replacing}
-                  aria-label={`Replace ${MEAL_TYPE_LABELS[meal.mealType]} on day ${day.dayIndex + 1}`}
-                  onClick={() => onReplace(day.dayIndex, meal.position)}
-                >
-                  Replace
-                </Button>
-              </td>
             </tr>
           ))}
         </tbody>
@@ -279,7 +238,6 @@ function DayView({ day, goalKcal, issues, onReplace, replacing }: DayViewProps) 
             </td>
             <td className="px-3 py-2 text-right tabular-nums">{formatNumber(day.totals.fatG)}</td>
             <td className="px-3 py-2 text-right tabular-nums">{formatNumber(day.totals.carbsG)}</td>
-            <td />
           </tr>
         </tfoot>
       </table>

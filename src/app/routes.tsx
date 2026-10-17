@@ -11,7 +11,7 @@ export const routes: RouteObject[] = [
     errorElement: <RouteError />,
     hydrateFallbackElement: <Spinner />,
     children: [
-      { index: true, element: <Navigate to="/recipes" replace /> },
+      { index: true, element: <Navigate to="/chat" replace /> },
       {
         path: 'foods',
         lazy: async () => ({ Component: (await import('../features/foods/FoodsPage')).FoodsPage }),
@@ -71,21 +71,9 @@ export const routes: RouteObject[] = [
         }),
       },
       {
-        path: 'menus/new',
-        lazy: async () => ({
-          Component: (await import('../features/menus/MenuFormPage')).MenuFormPage,
-        }),
-      },
-      {
         path: 'menus/:id',
         lazy: async () => ({
           Component: (await import('../features/menus/MenuDetailsPage')).MenuDetailsPage,
-        }),
-      },
-      {
-        path: 'menus/:id/edit',
-        lazy: async () => ({
-          Component: (await import('../features/menus/MenuFormPage')).MenuFormPage,
         }),
       },
       {

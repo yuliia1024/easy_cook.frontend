@@ -1,12 +1,12 @@
 import { NavLink, Outlet } from 'react-router';
 
 const LINKS = [
-  { to: '/foods', label: 'Foods' },
-  { to: '/recipes', label: 'Recipes' },
-  { to: '/menus', label: 'Menus' },
   { to: '/chat', label: 'Chat' },
+  { to: '/menus', label: 'Menus' },
   { to: '/profile', label: 'Profile & goals' },
   { to: '/preferences', label: 'Preferences' },
+  { to: '/foods', label: 'Foods' },
+  { to: '/recipes', label: 'Recipes' },
 ];
 
 export function Layout() {

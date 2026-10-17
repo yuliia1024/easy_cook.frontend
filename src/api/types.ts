@@ -1,5 +1,3 @@
-import type { UIMessage } from 'ai';
-
 // Mirrors the backend response DTOs (`easy_cook.backend/src/entrypoints/api`). Dates come as ISO strings.
 
 export type FoodState =
@@ -204,14 +202,12 @@ export interface DietaryPreferenceInput {
 export type MenuGeneratedBy = 'manual' | 'stub' | 'llm';
 export type MenuIssueSeverity = 'error' | 'warning';
 export type MenuIssueCode =
-  | 'recipe_not_found'
   | 'diet_violation'
   | 'allergen'
   | 'excluded_ingredient'
   | 'disliked_food'
   | 'calories_off_target'
-  | 'nutrition_incomplete'
-  | 'invalid_proposal';
+  | 'nutrition_incomplete';
 
 export interface MenuSummary {
   id: string;
@@ -303,73 +299,6 @@ export interface Menu {
   updatedAt: string;
   /** Newest first. */
   versions: MenuVersion[];
-}
-
-export interface MenuMealInput {
-  mealType: MealType;
-  recipeId: string;
-  servings: number;
-}
-
-export interface MenuDayInput {
-  dayIndex: number;
-  date?: string | null;
-  meals: MenuMealInput[];
-}
-
-export interface MenuVersionInput {
-  notes?: string | null;
-  days: MenuDayInput[];
-}
-
-export interface MenuInput extends MenuVersionInput {
-  title: string;
-}
-
-export interface GenerateMenuInput {
-  title?: string | null;
-  days: number;
-  mealTypes?: MealType[] | null;
-  startDate?: string | null;
-  instructions?: string | null;
-}
-
-/** A meal of the assistant's current proposal, before the backend validated it. */
-export interface ProposedMeal {
-  mealType: MealType;
-  recipeId: string | null;
-  /** Null when the assistant named an unknown recipe. */
-  recipeName: string | null;
-  servings: number;
-}
-
-export interface ProposedDay {
-  attempt: number;
-  dayIndex: number;
-  /** `YYYY-MM-DD`. */
-  date: string | null;
-  meals: ProposedMeal[];
-}
-
-/**
- * Data parts of `POST /menus/generate` (AI SDK UI message stream). Parts with the same id replace
- * each other: `status`, `issues` and `day-<n>` show the latest attempt; `menu` is the saved menu.
- */
-export type MenuGenerationDataParts = {
-  status: { attempt: number; maxAttempts: number };
-  day: ProposedDay;
-  /** Why the previous attempt was rejected; the assistant is trying again. */
-  issues: { attempt: number; messages: string[] };
-  menu: Menu;
-};
-
-export type MenuGenerationMessage = UIMessage<never, MenuGenerationDataParts>;
-
-export interface ReplaceMealInput {
-  versionId?: string | null;
-  dayIndex: number;
-  position: number;
-  instructions?: string | null;
 }
 
 export type MessageRole = 'user' | 'assistant';

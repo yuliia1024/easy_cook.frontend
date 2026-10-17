@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
-import { buildMenu, buildMenuSummary, MENU_ID } from '../../test/fixtures';
+import { buildMenuSummary } from '../../test/fixtures';
 import { renderRoutes } from '../../test/render';
-import { api, apiError, http, HttpResponse, server, uiMessageStream } from '../../test/server';
+import { api, apiError, http, HttpResponse, server } from '../../test/server';
 import { MenusPage } from './MenusPage';
 
 const routes = [
@@ -10,7 +10,7 @@ const routes = [
 ];
 
 describe('MenusPage', () => {
-  it('lists menus with their status', async () => {
+  it('lists menus with their status and links to them', async () => {
     server.use(
       http.get(api('/menus'), () =>
         HttpResponse.json([
@@ -19,95 +19,46 @@ describe('MenusPage', () => {
         ]),
       ),
     );
-    renderRoutes(routes, '/menus');
+    const { user, router } = renderRoutes(routes, '/menus');
 
     const confirmed = await screen.findByRole('link', { name: /Menu for 1 day/ });
     expect(confirmed).toHaveTextContent('3 versions');
     expect(confirmed).toHaveTextContent('confirmed');
-    expect(screen.getByRole('link', { name: /Draft menu/ })).toHaveTextContent('draft');
+    const draft = screen.getByRole('link', { name: /Draft menu/ });
+    expect(draft).toHaveTextContent('1 version ·');
+    expect(draft).toHaveTextContent('draft');
+
+    await user.click(draft);
+    expect(await screen.findByText('menu details')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/menus/other');
   });
 
-  it('generates a menu from the stream and opens it', async () => {
-    let body: unknown;
-    server.use(
-      http.get(api('/menus'), () => HttpResponse.json([])),
-      http.post(api('/menus/generate'), async ({ request }) => {
-        body = await request.json();
-        return uiMessageStream([
-          { type: 'start' },
-          { type: 'data-status', id: 'status', data: { attempt: 1, maxAttempts: 3 } },
-          { type: 'data-menu', id: 'menu', data: buildMenu() },
-          { type: 'finish' },
-        ]);
-      }),
-    );
-    const { user, router } = renderRoutes(routes, '/menus');
+  it('shows an empty state without a way to create a menu', async () => {
+    server.use(http.get(api('/menus'), () => HttpResponse.json([])));
+    renderRoutes(routes, '/menus');
 
     expect(await screen.findByText('No menus yet')).toBeInTheDocument();
-    await user.clear(screen.getByLabelText('Days (1–14)'));
-    await user.type(screen.getByLabelText('Days (1–14)'), '2');
-    await user.click(screen.getByLabelText('Snack'));
-    await user.click(screen.getByRole('button', { name: 'Generate' }));
-
-    expect(await screen.findByText('menu details')).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe(`/menus/${MENU_ID}`);
-    expect(body).toEqual({
-      title: null,
-      days: 2,
-      mealTypes: ['breakfast', 'lunch', 'dinner', 'snack'],
-      startDate: null,
-      instructions: null,
-    });
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.queryByText(/generate/i)).not.toBeInTheDocument();
   });
 
-  it('shows the proposal while it streams and why the planner gave up', async () => {
+  it('shows an error and retries', async () => {
+    let calls = 0;
     server.use(
-      http.get(api('/menus'), () => HttpResponse.json([])),
-      http.post(api('/menus/generate'), () =>
-        uiMessageStream([
-          { type: 'start' },
-          { type: 'data-status', id: 'status', data: { attempt: 2, maxAttempts: 3 } },
-          {
-            type: 'data-issues',
-            id: 'issues',
-            data: { attempt: 1, messages: ['Day 1, dinner: contains peanut'] },
-          },
-          {
-            type: 'data-day',
-            id: 'day-0',
-            data: {
-              attempt: 2,
-              dayIndex: 0,
-              date: '2026-10-20',
-              meals: [{ mealType: 'lunch', recipeId: 'r', recipeName: 'Fish soup', servings: 1.5 }],
-            },
-          },
-          { type: 'error', errorText: 'No valid menu after 3 attempts' },
-        ]),
-      ),
+      http.get(api('/menus'), () => {
+        calls += 1;
+        return calls === 1
+          ? apiError(500, 'Server is down')
+          : HttpResponse.json([buildMenuSummary()]);
+      }),
     );
     const { user } = renderRoutes(routes, '/menus');
 
-    await user.click(await screen.findByRole('button', { name: 'Generate' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Server is down');
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('No valid menu after 3 attempts');
-    const progress = screen.getByRole('region', { name: 'Generation progress' });
-    expect(progress).toHaveTextContent('Stopped at attempt 2 of 3');
-    expect(progress).toHaveTextContent('Attempt 1 was rejected:Day 1, dinner: contains peanut');
-    expect(progress).toHaveTextContent('Day 1 · 2026-10-20');
-    expect(progress).toHaveTextContent('Lunch: Fish soup × 1.5');
-  });
-
-  it('explains why planning could not start', async () => {
-    server.use(
-      http.get(api('/menus'), () => HttpResponse.json([])),
-      http.post(api('/menus/generate'), () =>
-        apiError(422, 'No lunch recipes match the dietary preferences'),
-      ),
-    );
-    const { user } = renderRoutes(routes, '/menus');
-
-    await user.click(await screen.findByRole('button', { name: 'Generate' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('No lunch recipes match');
+    expect(await screen.findByRole('link', { name: /Menu for 1 day/ })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

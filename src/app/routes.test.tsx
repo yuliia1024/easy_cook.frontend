@@ -1,22 +1,39 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { page } from '../test/fixtures';
 import { renderRoutes } from '../test/render';
 import { api, http, HttpResponse, server } from '../test/server';
 import { routes } from './routes';
 
 describe('routes', () => {
-  it('opens the recipe catalog by default with the navigation', async () => {
-    server.use(http.get(api('/recipes'), () => HttpResponse.json(page([]))));
+  it('opens the chat by default with the navigation', async () => {
+    server.use(http.get(api('/conversations'), () => HttpResponse.json([])));
     const { router } = renderRoutes(routes, '/');
 
-    expect(await screen.findByRole('heading', { name: 'Recipes' })).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe('/recipes');
+    expect(await screen.findByRole('heading', { name: 'Chat', level: 1 })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/chat');
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
-    expect(nav).toHaveTextContent('Foods');
-    expect(nav).toHaveTextContent('Profile & goals');
-    expect(nav).toHaveTextContent('Menus');
-    expect(nav).toHaveTextContent('Chat');
-    expect(nav).toHaveTextContent('Preferences');
+    expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Chat',
+      'Menus',
+      'Profile & goals',
+      'Preferences',
+      'Foods',
+      'Recipes',
+    ]);
+  });
+
+  it('goes to the chat when the logo is clicked', async () => {
+    server.use(
+      http.get(api('/recipes'), () => HttpResponse.json(page([]))),
+      http.get(api('/conversations'), () => HttpResponse.json([])),
+    );
+    const { router, user } = renderRoutes(routes, '/recipes');
+    await screen.findByRole('heading', { name: 'Recipes', level: 1 });
+
+    await user.click(screen.getByRole('link', { name: 'Easy Cook' }));
+
+    expect(await screen.findByRole('heading', { name: 'Chat', level: 1 })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/chat');
   });
 
   it.each([
