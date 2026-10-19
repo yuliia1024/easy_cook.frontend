@@ -23,4 +23,17 @@ describe('toPending', () => {
       menuId: null,
     });
   });
+
+  it('leaves data parts out of the text', () => {
+    expect(
+      toPending({
+        id: 'c',
+        role: 'assistant',
+        parts: [
+          { type: 'text', text: 'How many days?' },
+          { type: 'data-clarification', data: { missingFields: ['days'] } },
+        ],
+      }).content,
+    ).toBe('How many days?');
+  });
 });

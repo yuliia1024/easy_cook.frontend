@@ -45,4 +45,4 @@ export const MAX_SERVING_KCAL = 2500;
 export const PREFERENCE_VALUE_MAX_LENGTH = 120;
 
 // MESSAGE_MAX_LENGTH in the backend (`constants/chat.ts`).
-export const MESSAGE_MAX_LENGTH = 4000;
+export const MESSAGE_MAX_LENGTH = 300;

@@ -15,7 +15,7 @@ export interface PendingMessage {
   menuId: null;
 }
 
-/** The text of a streamed message. */
+/** The text of a streamed message; data parts (e.g. `data-clarification`) are left out. */
 export function toPending(message: UIMessage): PendingMessage {
   const content = message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('');
   return {
@@ -29,6 +29,7 @@ export function toPending(message: UIMessage): PendingMessage {
 /**
  * Sends a message and streams the reply (AI SDK `useChat`). While it streams, `pending` holds the
  * message and the reply so far; once it ends the conversation is refetched with both saved.
+ * `stop` cancels the reply: the backend keeps the message but drops the unfinished reply.
  */
 export function useReplyStream(id: string) {
   const queryClient = useQueryClient();
@@ -57,12 +58,13 @@ export function useReplyStream(id: string) {
   const error = chat.error
     ? chat.error instanceof ApiError
       ? chat.error
-      : // The stream ended with an `error` chunk: the model failed to answer.
+      : // The stream ended with an `error` chunk: the reply failed. Its text is safe to show.
         new ApiError(502, chat.error.message)
     : null;
 
   return {
     send,
+    stop: () => void chat.stop(),
     isSending: chat.status === 'submitted' || chat.status === 'streaming',
     /** True until the first chunk of the reply arrives. */
     isWaiting: chat.status === 'submitted',

@@ -15,6 +15,11 @@ import {
 } from './chat.queries';
 import { useReplyStream } from './use-reply-stream';
 
+const SUGGESTIONS = [
+  'Hi! What can you help me with?',
+  'Plan a one-day menu based on my profile and dietary preferences',
+] as const;
+
 /** `/chat` and `/chat/:id`. */
 export function ChatPage() {
   const { id } = useParams();
@@ -107,10 +112,11 @@ function Messages({ conversation }: { conversation: Conversation }) {
   const tooLong = draft.length > MESSAGE_MAX_LENGTH;
   const messages = [...conversation.messages, ...reply.pending];
 
-  const submit = async (): Promise<void> => {
-    if (!content || tooLong || reply.isSending) return;
+  const submit = async (text: string = draft): Promise<void> => {
+    const message = text.trim();
+    if (!message || text.length > MESSAGE_MAX_LENGTH || reply.isSending) return;
     setDraft('');
-    if (!(await reply.send(content))) setDraft(draft);
+    if (!(await reply.send(message))) setDraft(text);
   };
 
   const onSubmit = (event: FormEvent): void => {
@@ -140,7 +146,22 @@ function Messages({ conversation }: { conversation: Conversation }) {
       </div>
 
       {messages.length === 0 ? (
-        <p className="text-sm text-stone-500">No messages yet. Say hello.</p>
+        <div className="space-y-2">
+          <p className="text-sm text-stone-500">No messages yet. Try one of these:</p>
+          <ul aria-label="Suggestions" className="flex flex-wrap gap-2">
+            {SUGGESTIONS.map((suggestion) => (
+              <li key={suggestion}>
+                <Button
+                  variant="secondary"
+                  disabled={reply.isSending}
+                  onClick={() => void submit(suggestion)}
+                >
+                  {suggestion}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : (
         <ol aria-label="Messages" className="space-y-3">
           {messages.map((message) => (
@@ -193,9 +214,15 @@ function Messages({ conversation }: { conversation: Conversation }) {
           <p id="message-msg" className={`text-xs ${tooLong ? 'text-red-600' : 'text-stone-500'}`}>
             {draft.length} / {MESSAGE_MAX_LENGTH}
           </p>
-          <Button type="submit" loading={reply.isSending} disabled={!content || tooLong}>
-            Send
-          </Button>
+          {reply.isSending ? (
+            <Button variant="secondary" onClick={reply.stop}>
+              Stop
+            </Button>
+          ) : (
+            <Button type="submit" disabled={!content || tooLong}>
+              Send
+            </Button>
+          )}
         </div>
       </form>
     </section>
