@@ -13,6 +13,7 @@ import {
   useCreateConversation,
   useDeleteConversation,
 } from './chat.queries';
+import { SuggestedMenuTable } from './SuggestedMenuTable';
 import { useReplyStream } from './use-reply-stream';
 
 const SUGGESTIONS = [
@@ -174,6 +175,7 @@ function Messages({ conversation }: { conversation: Conversation }) {
               >
                 <span className="sr-only">{message.role === 'user' ? 'You: ' : 'Assistant: '}</span>
                 <p className="whitespace-pre-line">{message.content}</p>
+                {message.suggestedMenu && <SuggestedMenuTable menu={message.suggestedMenu} />}
                 {message.menuId && (
                   <Link
                     to={`/menus/${message.menuId}`}

@@ -303,6 +303,33 @@ export interface Menu {
 
 export type MessageRole = 'user' | 'assistant';
 
+export interface SuggestedMeal {
+  position: number;
+  mealType: MealType;
+  recipeId: string | null;
+  recipeName: string;
+  servings: number;
+  /** Per serving times `servings`. */
+  nutrition: Macros;
+  complete: boolean;
+}
+
+export interface SuggestedDay {
+  dayIndex: number;
+  /** `YYYY-MM-DD`. */
+  date: string | null;
+  meals: SuggestedMeal[];
+  totals: Macros;
+  complete: boolean;
+}
+
+/** A menu the assistant suggested in a reply; not a saved menu. */
+export interface SuggestedMenu {
+  days: SuggestedDay[];
+  dailyAverage: Macros;
+  issues: MenuIssue[];
+}
+
 export interface Message {
   id: string;
   role: MessageRole;
@@ -310,6 +337,8 @@ export interface Message {
   /** The menu version the assistant created with this reply, and its menu. */
   menuVersionId: string | null;
   menuId: string | null;
+  /** The menu the assistant suggested with this reply. */
+  suggestedMenu: SuggestedMenu | null;
   createdAt: string;
 }
 

@@ -1,3 +1,4 @@
+import { buildSuggestedMenu } from '../../test/fixtures';
 import { toPending } from './use-reply-stream';
 
 describe('toPending', () => {
@@ -12,7 +13,7 @@ describe('toPending', () => {
           { type: 'text', text: 'lo' },
         ],
       }),
-    ).toEqual({ id: 'm', role: 'assistant', content: 'Hello', menuId: null });
+    ).toEqual({ id: 'm', role: 'assistant', content: 'Hello', menuId: null, suggestedMenu: null });
   });
 
   it('keeps the user role', () => {
@@ -21,6 +22,7 @@ describe('toPending', () => {
       role: 'user',
       content: 'Hi',
       menuId: null,
+      suggestedMenu: null,
     });
   });
 
@@ -35,5 +37,20 @@ describe('toPending', () => {
         ],
       }).content,
     ).toBe('How many days?');
+  });
+
+  it('takes the suggested menu from the data-menu part', () => {
+    const menu = buildSuggestedMenu();
+
+    expect(
+      toPending({
+        id: 'r',
+        role: 'assistant',
+        parts: [
+          { type: 'text', text: 'Here is your day.' },
+          { type: 'data-menu', data: menu },
+        ],
+      }),
+    ).toMatchObject({ content: 'Here is your day.', suggestedMenu: menu });
   });
 });

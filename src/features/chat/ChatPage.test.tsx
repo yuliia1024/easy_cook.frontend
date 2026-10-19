@@ -3,6 +3,7 @@ import {
   buildConversation,
   buildConversationSummary,
   buildMessage,
+  buildSuggestedMenu,
   CONVERSATION_ID,
   MENU_ID,
   VERSION_ID,
@@ -259,6 +260,52 @@ describe('ChatPage', () => {
     const messages = await screen.findByRole('list', { name: 'Messages' });
     expect(await within(messages).findByText('How many days?')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('shows the suggested menu as a table while it streams and after it is saved', async () => {
+    const menu = buildSuggestedMenu();
+    let answered = false;
+    server.use(
+      http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+        HttpResponse.json(
+          buildConversation({
+            messages: answered
+              ? [
+                  buildMessage({ content: 'Plan my day' }),
+                  buildMessage({
+                    id: 'reply',
+                    role: 'assistant',
+                    content: 'Here is your day.',
+                    suggestedMenu: menu,
+                  }),
+                ]
+              : [],
+          }),
+        ),
+      ),
+      http.post(api(`/conversations/${CONVERSATION_ID}/messages`), () => {
+        answered = true;
+        return uiMessageStream([
+          { type: 'start' },
+          { type: 'text-start', id: 'text' },
+          { type: 'text-delta', id: 'text', delta: 'Here is your day.' },
+          { type: 'text-end', id: 'text' },
+          { type: 'data-menu', data: menu },
+          { type: 'finish' },
+        ]);
+      }),
+    );
+    const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+    await user.type(await screen.findByLabelText('Message'), 'Plan my day{Enter}');
+
+    const messages = await screen.findByRole('list', { name: 'Messages' });
+    expect(await within(messages).findByText('Here is your day.')).toBeInTheDocument();
+    expect(
+      await within(messages).findByRole('table', { name: 'Suggested menu, day 1' }),
+    ).toBeInTheDocument();
+    expect(within(messages).getByRole('link', { name: 'Oatmeal' })).toBeInTheDocument();
   });
 
   it('does not send a message over 300 characters', async () => {

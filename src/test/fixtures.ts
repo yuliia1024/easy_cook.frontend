@@ -14,6 +14,7 @@ import type {
   Recipe,
   RecipeNutrition,
   RecipeSnapshot,
+  SuggestedMenu,
 } from '../api/types';
 
 const NOW = '2026-10-13T10:00:00.000Z';
@@ -246,6 +247,7 @@ export function buildMessage(overrides: Partial<Message> = {}): Message {
     content: 'Plan a menu for 3 days',
     menuVersionId: null,
     menuId: null,
+    suggestedMenu: null,
     createdAt: NOW,
     ...overrides,
   };
@@ -273,6 +275,43 @@ export function buildConversationSummary(
     messageCount: 0,
     createdAt: NOW,
     updatedAt: NOW,
+    ...overrides,
+  };
+}
+
+/** Breakfast and lunch of one day; the lunch recipe was deleted. */
+export function buildSuggestedMenu(overrides: Partial<SuggestedMenu> = {}): SuggestedMenu {
+  return {
+    days: [
+      {
+        dayIndex: 0,
+        date: null,
+        meals: [
+          {
+            position: 0,
+            mealType: 'breakfast',
+            recipeId: '22222222-2222-4222-8222-222222222222',
+            recipeName: 'Oatmeal',
+            servings: 1,
+            nutrition: { kcal: 302.8, proteinG: 11.2, fatG: 5.9, carbsG: 53.8 },
+            complete: true,
+          },
+          {
+            position: 1,
+            mealType: 'lunch',
+            recipeId: null,
+            recipeName: 'Rice bowl',
+            servings: 1,
+            nutrition: { kcal: 520, proteinG: 10.8, fatG: 1.2, carbsG: 112 },
+            complete: true,
+          },
+        ],
+        totals: { kcal: 822.8, proteinG: 22, fatG: 7.1, carbsG: 165.8 },
+        complete: true,
+      },
+    ],
+    dailyAverage: { kcal: 822.8, proteinG: 22, fatG: 7.1, carbsG: 165.8 },
+    issues: [],
     ...overrides,
   };
 }

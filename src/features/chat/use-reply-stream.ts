@@ -4,25 +4,29 @@ import type { UIMessage } from 'ai';
 import { useMemo, useRef } from 'react';
 import { createReplyTransport } from '../../api/conversations';
 import { ApiError } from '../../api/http';
-import type { MessageRole } from '../../api/types';
+import type { MessageRole, SuggestedMenu } from '../../api/types';
 import { chatKeys } from './chat.queries';
 
 export interface PendingMessage {
   id: string;
   role: MessageRole;
   content: string;
-  /** Streamed replies are text only; they never link a menu. */
+  /** Streamed replies never link a saved menu. */
   menuId: null;
+  /** From the `data-menu` part. */
+  suggestedMenu: SuggestedMenu | null;
 }
 
-/** The text of a streamed message; data parts (e.g. `data-clarification`) are left out. */
+/** The text of a streamed message and the menu it suggests; other data parts are left out. */
 export function toPending(message: UIMessage): PendingMessage {
   const content = message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('');
+  const menu = message.parts.find((part) => part.type === 'data-menu');
   return {
     id: message.id,
     role: message.role === 'user' ? 'user' : 'assistant',
     content,
     menuId: null,
+    suggestedMenu: menu && 'data' in menu ? (menu.data as SuggestedMenu) : null,
   };
 }
 
