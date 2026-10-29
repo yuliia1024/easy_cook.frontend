@@ -14,7 +14,7 @@ export function FoodPicker({ onPick }: { onPick: (food: FoodItem) => void }) {
   const foods = useFoods({ search: debounced, limit: 8 }, debounced.length >= 2);
 
   return (
-    <div className="rounded-lg border border-stone-200 bg-stone-50 p-3">
+    <div className="rounded-2xl border border-sage-200 bg-sage-25 p-4">
       <label htmlFor="food-search" className="text-sm font-medium">
         Add an ingredient from the catalog
       </label>
@@ -29,17 +29,17 @@ export function FoodPicker({ onPick }: { onPick: (food: FoodItem) => void }) {
       {debounced.length >= 2 && (
         <div className="mt-2">
           {foods.isPending ? (
-            <p className="text-sm text-stone-500">Searching…</p>
+            <p className="text-sm text-sage-500">Searching…</p>
           ) : foods.isError ? (
             <ErrorAlert error={foods.error} onRetry={() => void foods.refetch()} />
           ) : foods.data.items.length === 0 ? (
-            <p className="text-sm text-stone-500">
+            <p className="text-sm text-sage-500">
               Nothing found. Add the food to the catalog first.
             </p>
           ) : (
             <ul
               aria-label="Search results"
-              className="divide-y divide-stone-200 rounded-md border border-stone-200 bg-white"
+              className="divide-y divide-sage-200 overflow-hidden rounded-xl border border-sage-200 bg-white"
             >
               {foods.data.items.map((food) => (
                 <li
@@ -48,7 +48,7 @@ export function FoodPicker({ onPick }: { onPick: (food: FoodItem) => void }) {
                 >
                   <span>
                     <span className="font-medium">{food.name}</span>{' '}
-                    <span className="text-xs text-stone-500">
+                    <span className="text-xs text-sage-500">
                       ({FOOD_STATE_LABELS[food.state]}) · {formatNumber(food.kcalPer100g)} kcal/100
                       g
                     </span>

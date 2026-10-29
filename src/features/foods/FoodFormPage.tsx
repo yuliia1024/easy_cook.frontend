@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { FoodItem } from '../../api/types';
 import { Button } from '../../components/Button';
+import { buttonClass } from '../../components/button-class';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { Field } from '../../components/Field';
 import { PageHeader } from '../../components/PageHeader';
@@ -71,7 +72,7 @@ function FoodForm({ food }: { food?: FoodItem }) {
     <>
       <Link
         to={food ? `/foods/${food.id}` : '/foods'}
-        className="text-sm text-stone-600 hover:underline"
+        className="text-sm text-sage-600 hover:underline"
       >
         ← Back
       </Link>
@@ -107,9 +108,9 @@ function FoodForm({ food }: { food?: FoodItem }) {
           </Field>
         </div>
 
-        <fieldset className="rounded-lg border border-stone-200 bg-white p-4">
+        <fieldset className="card">
           <legend className="px-1 text-sm font-medium">Calories and macros per 100 g</legend>
-          <p className="mb-3 text-xs text-stone-500">
+          <p className="mb-3 text-xs text-sage-500">
             Leave a field empty if the value is unknown (not 0).
           </p>
           <div className="grid gap-4 sm:grid-cols-4">
@@ -127,9 +128,10 @@ function FoodForm({ food }: { food?: FoodItem }) {
           <Button type="submit" loading={save.isPending}>
             Save
           </Button>
-          <Button variant="ghost" onClick={() => navigate(-1)}>
+          {/* Not `navigate(-1)`: a form opened by a direct link has no page to go back to. */}
+          <Link to={food ? `/foods/${food.id}` : '/foods'} className={buttonClass('ghost')}>
             Cancel
-          </Button>
+          </Link>
         </div>
       </form>
     </>

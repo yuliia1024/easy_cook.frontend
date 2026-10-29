@@ -22,7 +22,7 @@ export function FoodDetailsPage() {
 
   return (
     <>
-      <Link to="/foods" className="text-sm text-stone-600 hover:underline">
+      <Link to="/foods" className="text-sm text-sage-600 hover:underline">
         ← All foods
       </Link>
       <PageHeader
@@ -54,12 +54,12 @@ export function FoodDetailsPage() {
       )}
 
       <dl className="mt-6 grid gap-2 text-sm sm:grid-cols-[max-content_1fr] sm:gap-x-6">
-        <dt className="text-stone-500">Source</dt>
+        <dt className="text-sage-500">Source</dt>
         <dd>
           {FOOD_SOURCE_LABELS[data.source]}
-          {data.sourceId && <span className="text-stone-500"> · {data.sourceId}</span>}
+          {data.sourceId && <span className="text-sage-500"> · {data.sourceId}</span>}
         </dd>
-        <dt className="text-stone-500">Updated</dt>
+        <dt className="text-sage-500">Updated</dt>
         <dd>{formatDate(data.updatedAt)}</dd>
       </dl>
     </>

@@ -4,10 +4,11 @@ import type { Conversation, ConversationInput, ConversationSummary } from './typ
 
 export const conversationsApi = {
   list: (): Promise<ConversationSummary[]> => request('/conversations'),
-  get: (id: string): Promise<Conversation> => request(`/conversations/${id}`),
+  get: (id: string): Promise<Conversation> => request(`/conversations/${encodeURIComponent(id)}`),
   create: (input: ConversationInput = {}): Promise<Conversation> =>
     request('/conversations', { method: 'POST', body: input }),
-  remove: (id: string): Promise<void> => request(`/conversations/${id}`, { method: 'DELETE' }),
+  remove: (id: string): Promise<void> =>
+    request(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
 
 /**
@@ -17,7 +18,7 @@ export const conversationsApi = {
  */
 export function createReplyTransport(id: string): DefaultChatTransport<UIMessage> {
   return new DefaultChatTransport<UIMessage>({
-    api: `${BASE_URL}/conversations/${id}/messages`,
+    api: `${BASE_URL}/conversations/${encodeURIComponent(id)}/messages`,
     fetch: streamFetch,
     prepareSendMessagesRequest: ({ body }) => ({ body: body ?? {} }),
   });

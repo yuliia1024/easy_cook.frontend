@@ -3,6 +3,7 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { Recipe } from '../../api/types';
 import { Button } from '../../components/Button';
+import { buttonClass } from '../../components/button-class';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { Field } from '../../components/Field';
 import { MacrosSummary } from '../../components/MacrosSummary';
@@ -75,7 +76,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
     <>
       <Link
         to={recipe ? `/recipes/${recipe.id}` : '/recipes'}
-        className="text-sm text-stone-600 hover:underline"
+        className="text-sm text-sage-600 hover:underline"
       >
         ← Back
       </Link>
@@ -123,7 +124,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
             </Field>
           </div>
           <fieldset className="sm:col-span-2">
-            <legend className="text-sm font-medium text-stone-700">Diet</legend>
+            <legend className="text-sm font-medium text-sage-700">Diet</legend>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
               {toOptions(DIET_TAG_LABELS).map((option) => (
                 <label key={option.value} className="flex items-center gap-1.5 text-sm">
@@ -166,12 +167,12 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
           <h2 id="ingredients-heading" className="text-lg font-semibold">
             Ingredients
           </h2>
-          <p className="text-xs text-stone-500">
+          <p className="text-xs text-sage-500">
             Weight is for the whole recipe, in the state of the chosen food (150 g of dry rice ≠ 150
             g of boiled).
           </p>
           {ingredients.fields.length === 0 ? (
-            <p className="text-sm text-stone-500">No ingredients yet.</p>
+            <p className="text-sm text-sage-500">No ingredients yet.</p>
           ) : (
             <ol className="space-y-2">
               {ingredients.fields.map((item, index) => {
@@ -180,14 +181,14 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
                 return (
                   <li
                     key={item.id}
-                    className="grid gap-2 rounded-lg border border-stone-200 bg-white p-3 sm:grid-cols-[1fr_7rem_1fr_auto] sm:items-start"
+                    className="grid gap-2 rounded-2xl border border-sage-200 bg-white p-4 sm:grid-cols-[1fr_7rem_1fr_auto] sm:items-start"
                   >
                     <div className="text-sm">
                       <span className="font-medium">{food.name}</span>{' '}
-                      <span className="text-xs text-stone-500">
+                      <span className="text-xs text-sage-500">
                         ({FOOD_STATE_LABELS[food.state]})
                       </span>
-                      <label className="mt-1 flex items-center gap-1.5 text-xs text-stone-600">
+                      <label className="mt-1 flex items-center gap-1.5 text-xs text-sage-600">
                         <input type="checkbox" {...register(`ingredients.${index}.isOptional`)} />
                         optional
                       </label>
@@ -203,7 +204,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
                           {...a11y(`ingredients.${index}.quantityG`, error?.quantityG)}
                           {...register(`ingredients.${index}.quantityG`)}
                         />
-                        <span className="text-sm text-stone-500">g</span>
+                        <span className="text-sm text-sage-500">g</span>
                       </div>
                       {error?.quantityG && (
                         <p
@@ -284,7 +285,7 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
               missing={estimate.missing}
             />
           </div>
-          <p className="text-sm text-stone-500">
+          <p className="text-sm text-sage-500">
             With every ingredient, optional ones included, one serving weighs ≈{' '}
             {Math.round(serving.weightG)} g and has ≈ {Math.round(serving.kcal)} kcal (at most{' '}
             {MAX_SERVING_WEIGHT_G} g and {MAX_SERVING_KCAL} kcal).
@@ -302,9 +303,10 @@ function RecipeForm({ recipe }: { recipe?: Recipe }) {
           <Button type="submit" loading={save.isPending}>
             Save
           </Button>
-          <Button variant="ghost" onClick={() => navigate(-1)}>
+          {/* Not `navigate(-1)`: a form opened by a direct link has no page to go back to. */}
+          <Link to={recipe ? `/recipes/${recipe.id}` : '/recipes'} className={buttonClass('ghost')}>
             Cancel
-          </Button>
+          </Link>
         </div>
       </form>
     </>

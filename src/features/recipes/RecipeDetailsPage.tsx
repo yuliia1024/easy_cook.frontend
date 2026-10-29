@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import type { Recipe } from '../../api/types';
+import type { Macro, Recipe } from '../../api/types';
 import { Button } from '../../components/Button';
 import { buttonClass } from '../../components/button-class';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { MacrosSummary } from '../../components/MacrosSummary';
 import { PageHeader } from '../../components/PageHeader';
@@ -10,6 +11,14 @@ import { Spinner } from '../../components/Spinner';
 import { formatNumber } from '../../lib/format';
 import { DIET_TAG_LABELS, FOOD_STATE_LABELS, MEAL_TYPE_LABELS } from '../../lib/labels';
 import { useDeleteRecipe, useRecipe, useRecipeNutrition } from './recipes.queries';
+
+/** Ingredient columns in the colors of the tiles above. */
+const CELL_TONES: Record<Macro, string> = {
+  kcal: 'font-semibold',
+  proteinG: 'text-protein-fg',
+  fatG: 'text-fat-fg',
+  carbsG: 'text-carbs-fg',
+};
 
 export function RecipeDetailsPage() {
   const { id } = useParams();
@@ -24,18 +33,19 @@ export function RecipeDetailsPage() {
 function RecipeDetails({ recipe }: { recipe: Recipe }) {
   const navigate = useNavigate();
   const [includeOptional, setIncludeOptional] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const nutrition = useRecipeNutrition(recipe.id, includeOptional);
   const remove = useDeleteRecipe();
   const hasOptional = recipe.ingredients.some((ingredient) => ingredient.isOptional);
 
   const onDelete = (): void => {
-    if (!window.confirm(`Delete the recipe “${recipe.name}”?`)) return;
+    setDeleting(false);
     remove.mutate(recipe.id, { onSuccess: () => navigate('/recipes') });
   };
 
   return (
     <>
-      <Link to="/recipes" className="text-sm text-stone-600 hover:underline">
+      <Link to="/recipes" className="text-sm text-sage-600 hover:underline">
         ← All recipes
       </Link>
       <PageHeader
@@ -45,7 +55,7 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
             <Link to={`/recipes/${recipe.id}/edit`} className={buttonClass('secondary')}>
               Edit
             </Link>
-            <Button variant="danger" onClick={onDelete} loading={remove.isPending}>
+            <Button variant="danger" onClick={() => setDeleting(true)} loading={remove.isPending}>
               Delete
             </Button>
           </>
@@ -56,8 +66,18 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
         {recipe.dietType.length > 0 &&
           ` · ${recipe.dietType.map((tag) => DIET_TAG_LABELS[tag]).join(', ')}`}
       </PageHeader>
+      {deleting && (
+        <ConfirmDialog
+          title="Delete this recipe?"
+          confirmLabel="Delete"
+          onConfirm={onDelete}
+          onCancel={() => setDeleting(false)}
+        >
+          “{recipe.name}” will be permanently deleted. Saved menus keep its name but lose the link.
+        </ConfirmDialog>
+      )}
       {remove.isError && <ErrorAlert error={remove.error} title="Could not delete the recipe" />}
-      {recipe.description && <p className="mb-6 text-stone-700">{recipe.description}</p>}
+      {recipe.description && <p className="mb-6 text-sage-700">{recipe.description}</p>}
 
       <section aria-labelledby="nutrition-heading" className="mb-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -83,10 +103,11 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
         ) : (
           <div className={nutrition.isPlaceholderData ? 'opacity-60' : ''}>
             <div className="grid gap-4 lg:grid-cols-2">
-              <MacrosSummary caption="Per serving" values={nutrition.data.perServing} />
+              <MacrosSummary caption="Per serving" values={nutrition.data.perServing} highlight />
               <MacrosSummary
                 caption={`Whole recipe (${recipe.servings} serv.)`}
                 values={nutrition.data.total}
+                highlight
               />
             </div>
             {!nutrition.data.complete && (
@@ -95,31 +116,33 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
                 as 0.
               </p>
             )}
-            <p className="mt-2 text-xs text-stone-500">
+            <p className="mt-2 text-xs text-sage-500">
               Sum of the ingredients in their given state; water and oil losses during cooking are
               not taken into account.
             </p>
 
-            <div className="mt-4 overflow-x-auto rounded-lg border border-stone-200 bg-white">
-              <table className="w-full text-sm">
+            <div className="mt-4 card overflow-x-auto p-0">
+              <table className="data-table">
                 <caption className="sr-only">
                   Ingredients and their contribution to calories and macros
                 </caption>
-                <thead className="bg-stone-100 text-left text-xs uppercase tracking-wide text-stone-600">
+                <thead>
                   <tr>
-                    <th className="px-3 py-2">Ingredient</th>
-                    <th className="px-3 py-2 text-right">Weight, g</th>
-                    <th className="px-3 py-2 text-right">Kcal</th>
-                    <th className="px-3 py-2 text-right">P</th>
-                    <th className="px-3 py-2 text-right">F</th>
-                    <th className="px-3 py-2 text-right">C</th>
+                    <th>Ingredient</th>
+                    <th className="text-right">Weight, g</th>
+                    <th className="text-right">Kcal</th>
+                    <th className="text-right text-protein-fg!">P</th>
+                    <th className="text-right text-fat-fg!">F</th>
+                    <th className="text-right text-carbs-fg!">C</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100">
+                <tbody>
                   {nutrition.data.ingredients.map((line) => {
                     const notes = recipe.ingredients.find((i) => i.id === line.ingredientId)?.notes;
                     const cell = (macro: keyof typeof line.macros) => (
-                      <td className="px-3 py-2 text-right tabular-nums">
+                      <td
+                        className={`text-right tabular-nums ${line.counted ? CELL_TONES[macro] : ''}`}
+                      >
                         {line.counted ? formatNumber(line.macros[macro]) : '—'}
                         {line.counted && line.missing.includes(macro) && (
                           <span className="text-amber-600">*</span>
@@ -127,20 +150,18 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
                       </td>
                     );
                     return (
-                      <tr key={line.ingredientId} className={line.counted ? '' : 'text-stone-400'}>
-                        <td className="px-3 py-2">
+                      <tr key={line.ingredientId} className={line.counted ? '' : 'text-sage-400'}>
+                        <td>
                           <Link to={`/foods/${line.foodItemId}`} className="hover:underline">
                             {line.foodName}
                           </Link>{' '}
-                          <span className="text-xs text-stone-500">
+                          <span className="text-xs text-sage-500">
                             ({FOOD_STATE_LABELS[line.state]})
                           </span>
                           {line.isOptional && <span className="ml-1 text-xs">· optional</span>}
-                          {notes && <div className="text-xs text-stone-500">{notes}</div>}
+                          {notes && <div className="text-xs text-sage-500">{notes}</div>}
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums">
-                          {formatNumber(line.quantityG)}
-                        </td>
+                        <td className="text-right tabular-nums">{formatNumber(line.quantityG)}</td>
                         {cell('kcal')}
                         {cell('proteinG')}
                         {cell('fatG')}
@@ -159,7 +180,7 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
         <h2 id="instructions-heading" className="mb-2 text-lg font-semibold">
           Instructions
         </h2>
-        <p className="whitespace-pre-line text-stone-800">{recipe.instructions}</p>
+        <p className="whitespace-pre-line text-sage-800">{recipe.instructions}</p>
       </section>
     </>
   );

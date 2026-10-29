@@ -48,7 +48,6 @@ describe('RecipeDetailsPage', () => {
   });
 
   it('deletes after confirmation', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     server.use(
       http.get(api(`/recipes/${recipe.id}`), () => HttpResponse.json(recipe)),
       http.get(api(`/recipes/${recipe.id}/nutrition`), () => HttpResponse.json(buildNutrition())),
@@ -57,6 +56,8 @@ describe('RecipeDetailsPage', () => {
     const { user } = renderRoutes(routes, `/recipes/${recipe.id}`);
 
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete this recipe?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
     expect(await screen.findByText('recipes list')).toBeInTheDocument();
   });
 

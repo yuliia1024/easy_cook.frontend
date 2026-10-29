@@ -33,13 +33,14 @@ describe('MenusPage', () => {
     expect(router.state.location.pathname).toBe('/menus/other');
   });
 
-  it('shows an empty state without a way to create a menu', async () => {
+  it('shows an empty state that sends to the chat instead of creating a menu', async () => {
     server.use(http.get(api('/menus'), () => HttpResponse.json([])));
     renderRoutes(routes, '/menus');
 
     expect(await screen.findByText('No menus yet')).toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/chat');
+    expect(screen.getByRole('link')).toHaveTextContent('Open Chat');
     expect(screen.queryByText(/generate/i)).not.toBeInTheDocument();
   });
 

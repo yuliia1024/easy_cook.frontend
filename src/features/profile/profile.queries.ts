@@ -8,6 +8,7 @@ import type {
   Profile,
   ProfileInput,
 } from '../../api/types';
+import { preferenceKeys } from '../preferences/preferences.queries';
 
 export const profileKeys = {
   profile: ['profile'] as const,
@@ -37,8 +38,11 @@ export function useSaveProfile() {
     mutationFn: (input: ProfileInput): Promise<Profile> => profileApi.save(input),
     onSuccess: (profile) => {
       queryClient.setQueryData(profileKeys.profile, profile);
-      // The rule based preview depends on the profile.
-      return queryClient.invalidateQueries({ queryKey: profileKeys.preview });
+      // The rule based preview depends on the profile; preferences need it to exist.
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: profileKeys.preview }),
+        queryClient.invalidateQueries({ queryKey: preferenceKeys.all }),
+      ]);
     },
   });
 }

@@ -105,7 +105,7 @@ export function ProfileForm({ profile }: { profile: Profile | null }) {
       </div>
       {save.isError && <ErrorAlert error={save.error} title="Could not save the profile" />}
       {save.isSuccess && !isDirty && (
-        <p role="status" className="text-sm text-green-700">
+        <p role="status" className="text-sm text-brand-700">
           Profile saved.
         </p>
       )}

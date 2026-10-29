@@ -46,3 +46,6 @@ export const PREFERENCE_VALUE_MAX_LENGTH = 120;
 
 // MESSAGE_MAX_LENGTH in the backend (`constants/chat.ts`).
 export const MESSAGE_MAX_LENGTH = 300;
+
+// MENU_TITLE_MAX_LENGTH in the backend (`constants/menu.ts`).
+export const MENU_TITLE_MAX_LENGTH = 255;

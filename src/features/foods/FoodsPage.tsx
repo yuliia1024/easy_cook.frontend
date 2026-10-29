@@ -50,7 +50,7 @@ export function FoodsPage() {
         unknown.
       </PageHeader>
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+      <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_9rem_9rem]">
         <input
           type="search"
           className="input"
@@ -96,46 +96,44 @@ export function FoodsPage() {
       ) : (
         <>
           <div
-            className={`overflow-x-auto rounded-lg border border-stone-200 bg-white ${foods.isPlaceholderData ? 'opacity-60' : ''}`}
+            className={`card overflow-x-auto p-0 ${foods.isPlaceholderData ? 'opacity-60' : ''}`}
           >
-            <table className="w-full text-sm">
-              <thead className="bg-stone-100 text-left text-xs uppercase tracking-wide text-stone-600">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <th className="px-3 py-2">Name</th>
-                  <th className="px-3 py-2">State</th>
-                  <th className="px-3 py-2 text-right">Kcal</th>
-                  <th className="px-3 py-2 text-right">P, g</th>
-                  <th className="px-3 py-2 text-right">F, g</th>
-                  <th className="px-3 py-2 text-right">C, g</th>
-                  <th className="px-3 py-2">Source</th>
+                  <th>Name</th>
+                  <th>State</th>
+                  <th className="text-right">Kcal</th>
+                  <th className="text-right">P, g</th>
+                  <th className="text-right">F, g</th>
+                  <th className="text-right">C, g</th>
+                  <th>Source</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-100">
+              <tbody>
                 {foods.data.items.map((food) => (
-                  <tr key={food.id} className="hover:bg-stone-50">
-                    <td className="px-3 py-2">
+                  <tr key={food.id} className="hover:bg-sage-25">
+                    <td>
                       <Link
                         to={`/foods/${food.id}`}
-                        className="font-medium text-green-800 hover:underline"
+                        className="font-medium text-brand-800 hover:underline"
                       >
                         {food.name}
                       </Link>
                       {food.nameEn && food.nameEn !== food.name && (
-                        <div className="text-xs text-stone-500">{food.nameEn}</div>
+                        <div className="mt-0.5 text-xs text-sage-500">{food.nameEn}</div>
                       )}
                     </td>
-                    <td className="px-3 py-2">{FOOD_STATE_LABELS[food.state]}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {formatNumber(food.kcalPer100g)}
+                    <td>{FOOD_STATE_LABELS[food.state]}</td>
+                    <td className="text-right tabular-nums">{formatNumber(food.kcalPer100g)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(food.proteinG)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(food.fatG)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(food.carbsG)}</td>
+                    <td>
+                      <span className="rounded-full bg-sage-100 px-2.5 py-0.5 text-xs whitespace-nowrap text-sage-700">
+                        {FOOD_SOURCE_LABELS[food.source]}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {formatNumber(food.proteinG)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">{formatNumber(food.fatG)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {formatNumber(food.carbsG)}
-                    </td>
-                    <td className="px-3 py-2 text-stone-600">{FOOD_SOURCE_LABELS[food.source]}</td>
                   </tr>
                 ))}
               </tbody>

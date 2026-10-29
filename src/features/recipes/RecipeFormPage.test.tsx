@@ -151,4 +151,18 @@ describe('RecipeFormPage', () => {
     expect(alert).toHaveTextContent('Could not save the recipe');
     expect(alert).toHaveTextContent('Food item not found: x');
   });
+
+  it('cancels back to the recipe, or to the list for a new one', async () => {
+    const recipe = buildRecipe();
+    server.use(http.get(api(`/recipes/${recipe.id}`), () => HttpResponse.json(recipe)));
+    const { unmount } = renderRoutes(routes, `/recipes/${recipe.id}/edit`);
+
+    expect(await screen.findByRole('link', { name: 'Cancel' })).toHaveAttribute(
+      'href',
+      `/recipes/${recipe.id}`,
+    );
+    unmount();
+    renderRoutes(routes, '/recipes/new');
+    expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/recipes');
+  });
 });

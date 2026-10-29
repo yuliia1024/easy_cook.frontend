@@ -2,6 +2,7 @@ import { Link, useSearchParams } from 'react-router';
 import type { DietTag, MealType } from '../../api/types';
 import { buttonClass } from '../../components/button-class';
 import { EmptyState } from '../../components/EmptyState';
+import { MacroChips } from '../../components/MacroChips';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { PageHeader } from '../../components/PageHeader';
 import { Pagination } from '../../components/Pagination';
@@ -63,7 +64,7 @@ export function RecipesPage() {
         Calories and macros per serving: the sum of the ingredients, excluding optional ones.
       </PageHeader>
 
-      <div className="mb-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+      <div className="mb-3 grid gap-3 sm:grid-cols-[1fr_11rem]">
         <input
           type="search"
           className="input"
@@ -105,7 +106,7 @@ export function RecipesPage() {
               type="button"
               aria-pressed={active}
               onClick={() => toggleTag(option.value)}
-              className={`rounded-full border px-3 py-1 text-xs ${active ? 'border-green-700 bg-green-700 text-white' : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-100'}`}
+              className={`rounded-full border px-3.5 py-1.5 text-[13px] ${active ? 'border-brand-700 bg-brand-700 font-medium text-white' : 'border-sage-300 bg-white text-sage-700 hover:bg-sage-100'}`}
             >
               {option.label}
             </button>
@@ -128,23 +129,22 @@ export function RecipesPage() {
               <li key={recipe.id}>
                 <Link
                   to={`/recipes/${recipe.id}`}
-                  className="flex h-full flex-col rounded-lg border border-stone-200 bg-white p-4 hover:border-green-600 hover:shadow-sm"
+                  className="card flex h-full flex-col gap-1.5 p-4.5 transition-colors hover:border-brand-100"
                 >
-                  <span className="text-xs font-medium uppercase tracking-wide text-green-800">
+                  <span className="caption text-brand-800">
                     {MEAL_TYPE_LABELS[recipe.mealType]}
                   </span>
-                  <span className="mt-1 font-semibold">{recipe.name}</span>
-                  <span className="mt-1 text-xs text-stone-500">
+                  <span className="text-base/snug font-semibold">{recipe.name}</span>
+                  <span className="text-xs text-sage-500">
                     {recipe.servings} serv.
                     {recipe.prepTimeMinutes !== null && ` · ${recipe.prepTimeMinutes} min`}
                     {recipe.dietType.length > 0 &&
                       ` · ${recipe.dietType.map((t) => DIET_TAG_LABELS[t]).join(', ')}`}
                   </span>
-                  <span className="mt-auto pt-3 text-sm tabular-nums text-stone-700">
-                    <strong>{formatNumber(recipe.nutritionPerServing.kcal)} kcal</strong> · P{' '}
-                    {formatNumber(recipe.nutritionPerServing.proteinG)} · F{' '}
-                    {formatNumber(recipe.nutritionPerServing.fatG)} · C{' '}
-                    {formatNumber(recipe.nutritionPerServing.carbsG)}
+                  <span className="mt-auto flex flex-wrap items-center gap-1.5 pt-2 tabular-nums">
+                    <b className="text-lg">{formatNumber(recipe.nutritionPerServing.kcal)}</b>{' '}
+                    <span className="mr-1 text-xs text-sage-500">kcal</span>
+                    <MacroChips values={recipe.nutritionPerServing} />
                     {!recipe.nutritionComplete && (
                       <span
                         className="ml-1 text-amber-600"

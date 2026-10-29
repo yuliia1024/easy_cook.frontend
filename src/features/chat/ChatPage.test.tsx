@@ -32,7 +32,7 @@ describe('ChatPage', () => {
     expect(await screen.findByText('No conversations yet.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'New conversation' }));
 
-    expect(await screen.findByText('No messages yet. Try one of these:')).toBeInTheDocument();
+    expect(await screen.findByText('No messages yet')).toBeInTheDocument();
     const suggestions = screen.getByRole('list', { name: 'Suggestions' });
     expect(
       within(suggestions)
@@ -262,7 +262,7 @@ describe('ChatPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('shows the suggested menu as a table while it streams and after it is saved', async () => {
+  it('shows the suggested menu while it streams and after it is saved', async () => {
     const menu = buildSuggestedMenu();
     let answered = false;
     server.use(
@@ -303,7 +303,7 @@ describe('ChatPage', () => {
     const messages = await screen.findByRole('list', { name: 'Messages' });
     expect(await within(messages).findByText('Here is your day.')).toBeInTheDocument();
     expect(
-      await within(messages).findByRole('table', { name: 'Suggested menu, day 1' }),
+      await within(messages).findByRole('region', { name: 'Suggested menu, day 1' }),
     ).toBeInTheDocument();
     expect(within(messages).getByRole('link', { name: 'Oatmeal' })).toBeInTheDocument();
   });
@@ -376,7 +376,6 @@ describe('ChatPage', () => {
   });
 
   it('deletes a conversation after confirmation', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     let deleted = false;
     server.use(
       http.get(api('/conversations'), () =>
@@ -393,8 +392,76 @@ describe('ChatPage', () => {
     const { user, router } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
 
     await user.click(await screen.findByRole('button', { name: 'Delete Old chat' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete this conversation?' });
+    expect(dialog).toHaveTextContent(
+      '“Old chat” and all its messages will be permanently deleted.',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     expect(await screen.findByText('No conversations yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/chat');
+    // The focused delete button went away with its row.
+    expect(screen.getByRole('button', { name: 'New conversation' })).toHaveFocus();
+  });
+
+  it('keeps the conversation when the deletion is cancelled', async () => {
+    let deleted = false;
+    server.use(
+      http.get(api('/conversations'), () =>
+        HttpResponse.json([buildConversationSummary({ title: 'Old chat' })]),
+      ),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+        HttpResponse.json(buildConversation()),
+      ),
+      http.delete(api(`/conversations/${CONVERSATION_ID}`), () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+    const remove = await screen.findByRole('button', { name: 'Delete Old chat' });
+    await user.click(remove);
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(remove).toHaveFocus();
+    await user.click(remove);
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(deleted).toBe(false);
+  });
+
+  it('keeps a draft in its own conversation', async () => {
+    const OTHER_ID = '99999999-9999-4999-8999-999999999991';
+    server.use(
+      http.get(api('/conversations'), () =>
+        HttpResponse.json([
+          buildConversationSummary({ title: 'First' }),
+          buildConversationSummary({ id: OTHER_ID, title: 'Second' }),
+        ]),
+      ),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+        HttpResponse.json(buildConversation({ title: 'First' })),
+      ),
+      http.get(api(`/conversations/${OTHER_ID}`), () =>
+        HttpResponse.json(buildConversation({ id: OTHER_ID, title: 'Second' })),
+      ),
+    );
+    const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+    await screen.findByRole('heading', { name: 'First' });
+    // Both conversations cached, so switching does not go through the loading state.
+    await user.click(screen.getByRole('link', { name: 'Second' }));
+    await screen.findByRole('heading', { name: 'Second' });
+    await user.click(screen.getByRole('link', { name: 'First' }));
+    await screen.findByRole('heading', { name: 'First' });
+
+    await user.type(screen.getByLabelText('Message'), 'for the first one');
+    await user.click(screen.getByRole('link', { name: 'Second' }));
+
+    expect(await screen.findByRole('heading', { name: 'Second' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Message')).toHaveValue('');
   });
 });

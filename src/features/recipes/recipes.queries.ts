@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { recipesApi } from '../../api/recipes';
 import type { Recipe, RecipeInput, RecipeQuery } from '../../api/types';
+import { menuKeys } from '../menus/menus.queries';
 
 export const recipeKeys = {
   all: ['recipes'] as const,
@@ -56,7 +57,11 @@ export function useDeleteRecipe() {
     mutationFn: (id: string) => recipesApi.remove(id),
     onSuccess: (_, id) => {
       queryClient.removeQueries({ queryKey: recipeKeys.detail(id) });
-      return queryClient.invalidateQueries({ queryKey: recipeKeys.all });
+      // Menus link their meals to the recipe.
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: recipeKeys.all }),
+        queryClient.invalidateQueries({ queryKey: menuKeys.all }),
+      ]);
     },
   });
 }

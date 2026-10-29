@@ -1,5 +1,15 @@
-import { buildSuggestedMenu } from '../../test/fixtures';
-import { toPending } from './use-reply-stream';
+import { act, renderHook } from '@testing-library/react';
+import {
+  buildConversation,
+  buildMenuSummary,
+  buildSuggestedMenu,
+  CONVERSATION_ID,
+} from '../../test/fixtures';
+import { createQueryWrapper } from '../../test/query-wrapper';
+import { api, http, server, uiMessageStream } from '../../test/server';
+import { menuKeys } from '../menus/menus.queries';
+import { chatKeys } from './chat.queries';
+import { toPending, useReplyStream } from './use-reply-stream';
 
 describe('toPending', () => {
   it('joins the text parts of a streamed message', () => {
@@ -52,5 +62,36 @@ describe('toPending', () => {
         ],
       }),
     ).toMatchObject({ content: 'Here is your day.', suggestedMenu: menu });
+  });
+});
+
+describe('useReplyStream', () => {
+  it('refreshes the conversation and the menus once the reply ends', async () => {
+    server.use(
+      http.post(api(`/conversations/${CONVERSATION_ID}/messages`), () =>
+        uiMessageStream([
+          { type: 'start' },
+          { type: 'text-start', id: 'text' },
+          { type: 'text-delta', id: 'text', delta: 'Saved your menu.' },
+          { type: 'text-end', id: 'text' },
+          { type: 'finish' },
+        ]),
+      ),
+    );
+    const { queryClient, wrapper } = createQueryWrapper();
+    queryClient.setQueryData(chatKeys.detail(CONVERSATION_ID), buildConversation());
+    queryClient.setQueryData(menuKeys.list(), [buildMenuSummary()]);
+    const { result } = renderHook(() => useReplyStream(CONVERSATION_ID), { wrapper });
+
+    let sent = false;
+    await act(async () => {
+      sent = await result.current.send('Plan my week');
+    });
+
+    expect(sent).toBe(true);
+    expect(queryClient.getQueryState(chatKeys.detail(CONVERSATION_ID))?.isInvalidated).toBe(true);
+    // A reply may have planned a menu or a new version of one.
+    expect(queryClient.getQueryState(menuKeys.list())?.isInvalidated).toBe(true);
+    expect(result.current.pending).toEqual([]);
   });
 });

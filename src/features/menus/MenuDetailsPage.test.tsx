@@ -120,8 +120,6 @@ describe('MenuDetailsPage', () => {
   });
 
   it('renames and deletes', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValue('Week 43');
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     let renamed: unknown;
     server.use(
       http.get(api(`/menus/${MENU_ID}`), () => HttpResponse.json(buildMenu())),
@@ -134,11 +132,34 @@ describe('MenuDetailsPage', () => {
     const { user } = render();
 
     await user.click(await screen.findByRole('button', { name: 'Rename' }));
+    const title = screen.getByLabelText('Menu title');
+    expect(title).toHaveFocus();
+    await user.clear(title);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByText('Enter a title')).toBeInTheDocument();
+    await user.type(title, '  Week 43 ');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByRole('heading', { name: 'Week 43' })).toBeInTheDocument();
     expect(renamed).toEqual({ title: 'Week 43' });
+    expect(screen.queryByLabelText('Menu title')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Delete' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete this menu?' });
+    expect(dialog).toHaveTextContent('“Week 43” and all its versions will be permanently deleted.');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
     expect(await screen.findByText('menus list')).toBeInTheDocument();
+  });
+
+  it('keeps the title when the rename is cancelled', async () => {
+    server.use(http.get(api(`/menus/${MENU_ID}`), () => HttpResponse.json(buildMenu())));
+    const { user } = render();
+
+    await user.click(await screen.findByRole('button', { name: 'Rename' }));
+    await user.type(screen.getByLabelText('Menu title'), ' changed');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByLabelText('Menu title')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(buildMenu().title);
   });
 
   it('shows a not found error', async () => {
