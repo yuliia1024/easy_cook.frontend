@@ -2,14 +2,15 @@ import { useId, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router';
 import type { SuggestedDay, SuggestedMenu } from '../../api/types';
 import { MacroChips } from '../../components/MacroChips';
-import { formatNumber } from '../../lib/format';
+import { formatNumber, servingsLabel } from '../../lib/format';
 import { MACRO_LABELS, MACRO_UNITS, MEAL_TYPE_LABELS } from '../../lib/labels';
+import { menuRecipePath } from '../../lib/menu-servings';
 
 const GRAM_MACROS = ['proteinG', 'fatG', 'carbsG'] as const;
 
 const dayLabel = (day: SuggestedDay): string => `Day ${day.dayIndex + 1}`;
 
-/** A suggested menu one day at a time: a card per meal and the total of the day. */
+/** A suggested menu one day at a time: a card per meal with its servings and the total of the day. */
 export function SuggestedMenuDays({ menu }: { menu: SuggestedMenu }) {
   const id = useId();
   const [selected, setSelected] = useState(0);
@@ -63,7 +64,7 @@ export function SuggestedMenuDays({ menu }: { menu: SuggestedMenu }) {
               <span className="caption text-xs">{MEAL_TYPE_LABELS[meal.mealType]}</span>
               {meal.recipeId ? (
                 <Link
-                  to={`/recipes/${meal.recipeId}`}
+                  to={menuRecipePath(meal.recipeId, meal.servings)}
                   className="text-base/snug font-semibold text-brand-800 hover:underline"
                 >
                   {meal.recipeName}
@@ -71,6 +72,7 @@ export function SuggestedMenuDays({ menu }: { menu: SuggestedMenu }) {
               ) : (
                 <span className="text-base/snug font-semibold">{meal.recipeName}</span>
               )}
+              <span className="text-[13px] text-sage-500">{servingsLabel(meal.servings)}</span>
               <span className="mt-1 text-[26px] font-bold tabular-nums">
                 {formatNumber(meal.nutrition.kcal)}
                 <span className="text-[13px] font-medium text-sage-500"> kcal</span>

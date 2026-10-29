@@ -17,7 +17,7 @@ const routes = [
 const render = () => renderRoutes(routes, `/menus/${MENU_ID}`);
 
 describe('MenuDetailsPage', () => {
-  it('shows the latest version with days, meals, totals, goal and issues', async () => {
+  it('shows the latest version with days, meals, servings, totals, goal and issues', async () => {
     const version = buildMenuVersion({
       issues: [
         {
@@ -44,6 +44,7 @@ describe('MenuDetailsPage', () => {
               position: 1,
               mealType: 'dinner',
               recipeId: null,
+              servings: 1.25,
               recipe: { ...buildMenuMeal().recipe, name: 'Old stew' },
             }),
           ],
@@ -60,9 +61,10 @@ describe('MenuDetailsPage', () => {
     const day = await screen.findByRole('region', { name: 'Day 1 · 20 Oct 2026' });
     expect(within(day).getByRole('link', { name: 'Buckwheat with chicken' })).toHaveAttribute(
       'href',
-      '/recipes/22222222-2222-4222-8222-222222222222',
+      '/recipes/22222222-2222-4222-8222-222222222222?servings=1',
     );
     expect(within(day).getByText('(deleted recipe)')).toBeInTheDocument();
+    expect(within(day).getByRole('cell', { name: '1.25' })).toBeInTheDocument();
     expect(within(day).getByText('Day total')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Daily goal (when built)' })).toHaveTextContent(
       '2,100',

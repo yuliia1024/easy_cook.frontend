@@ -27,6 +27,37 @@ describe('RecipeDetailsPage', () => {
     expect(screen.getByText('Boil the buckwheat.')).toBeInTheDocument();
   });
 
+  it('shows the calories and the ingredients of a menu meal opened with its servings', async () => {
+    server.use(
+      http.get(api(`/recipes/${recipe.id}`), () => HttpResponse.json(recipe)),
+      http.get(api(`/recipes/${recipe.id}/nutrition`), () => HttpResponse.json(buildNutrition())),
+    );
+    renderRoutes(routes, `/recipes/${recipe.id}?servings=1.25`);
+
+    const meal = await screen.findByRole('region', { name: 'For your menu (1.25 servings)' });
+    expect(within(meal).getByText('321.6')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Per serving' })).toHaveTextContent('257.3');
+    expect(
+      screen.getByText('Ingredients for 1.25 servings; the recipe makes 2.'),
+    ).toBeInTheDocument();
+    const row = screen.getByRole('link', { name: 'Buckwheat, dry' }).closest('tr')!;
+    expect(row).toHaveTextContent('93.8');
+  });
+
+  it('ignores servings a menu meal cannot have', async () => {
+    server.use(
+      http.get(api(`/recipes/${recipe.id}`), () => HttpResponse.json(recipe)),
+      http.get(api(`/recipes/${recipe.id}/nutrition`), () => HttpResponse.json(buildNutrition())),
+    );
+    renderRoutes(routes, `/recipes/${recipe.id}?servings=9`);
+
+    await screen.findByRole('region', { name: 'Per serving' });
+    expect(screen.queryByRole('region', { name: /For your menu/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Buckwheat, dry' }).closest('tr')).toHaveTextContent(
+      '150',
+    );
+  });
+
   it('recalculates with optional ingredients and marks missing values', async () => {
     const withOptional = buildRecipe({
       ingredients: [{ ...recipe.ingredients[0], isOptional: true }],

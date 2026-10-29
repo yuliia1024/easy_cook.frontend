@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { Macro, Recipe } from '../../api/types';
 import { Button } from '../../components/Button';
 import { buttonClass } from '../../components/button-class';
@@ -8,8 +8,9 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { MacrosSummary } from '../../components/MacrosSummary';
 import { PageHeader } from '../../components/PageHeader';
 import { Spinner } from '../../components/Spinner';
-import { formatNumber } from '../../lib/format';
+import { formatNumber, formatServings, servingsLabel } from '../../lib/format';
 import { DIET_TAG_LABELS, FOOD_STATE_LABELS, MEAL_TYPE_LABELS } from '../../lib/labels';
+import { parseMenuServings, scaleMacros } from '../../lib/menu-servings';
 import { useDeleteRecipe, useRecipe, useRecipeNutrition } from './recipes.queries';
 
 /** Ingredient columns in the colors of the tiles above. */
@@ -22,21 +23,33 @@ const CELL_TONES: Record<Macro, string> = {
 
 export function RecipeDetailsPage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const recipe = useRecipe(id);
 
   if (recipe.isPending) return <Spinner />;
   if (recipe.isError)
     return <ErrorAlert error={recipe.error} onRetry={() => void recipe.refetch()} />;
-  return <RecipeDetails recipe={recipe.data} />;
+  return (
+    <RecipeDetails
+      recipe={recipe.data}
+      menuServings={parseMenuServings(searchParams.get('servings'))}
+    />
+  );
 }
 
-function RecipeDetails({ recipe }: { recipe: Recipe }) {
+/**
+ * A recipe; opened from a menu meal (`menuServings`), also the calories and macros of the meal,
+ * and the ingredients in the amounts of the meal instead of the whole recipe.
+ */
+function RecipeDetails({ recipe, menuServings }: { recipe: Recipe; menuServings: number | null }) {
   const navigate = useNavigate();
   const [includeOptional, setIncludeOptional] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const nutrition = useRecipeNutrition(recipe.id, includeOptional);
   const remove = useDeleteRecipe();
   const hasOptional = recipe.ingredients.some((ingredient) => ingredient.isOptional);
+  /** The share of the whole recipe the ingredient table shows. */
+  const tableFactor = menuServings === null ? 1 : menuServings / recipe.servings;
 
   const onDelete = (): void => {
     setDeleting(false);
@@ -102,7 +115,14 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
           <ErrorAlert error={nutrition.error} onRetry={() => void nutrition.refetch()} />
         ) : (
           <div className={nutrition.isPlaceholderData ? 'opacity-60' : ''}>
-            <div className="grid gap-4 lg:grid-cols-2">
+            {menuServings !== null && (
+              <MacrosSummary
+                caption={`For your menu (${servingsLabel(menuServings)})`}
+                values={scaleMacros(nutrition.data.perServing, menuServings)}
+                highlight
+              />
+            )}
+            <div className={`grid gap-4 lg:grid-cols-2 ${menuServings !== null ? 'mt-4' : ''}`}>
               <MacrosSummary caption="Per serving" values={nutrition.data.perServing} highlight />
               <MacrosSummary
                 caption={`Whole recipe (${recipe.servings} serv.)`}
@@ -121,10 +141,16 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
               not taken into account.
             </p>
 
+            {menuServings !== null && (
+              <p className="mt-4 text-sm text-sage-700">
+                Ingredients for {servingsLabel(menuServings)}; the recipe makes {recipe.servings}.
+              </p>
+            )}
             <div className="mt-4 card overflow-x-auto p-0">
               <table className="data-table">
                 <caption className="sr-only">
                   Ingredients and their contribution to calories and macros
+                  {menuServings !== null && `, for ${formatServings(menuServings)} servings`}
                 </caption>
                 <thead>
                   <tr>
@@ -139,11 +165,12 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
                 <tbody>
                   {nutrition.data.ingredients.map((line) => {
                     const notes = recipe.ingredients.find((i) => i.id === line.ingredientId)?.notes;
+                    const macros = scaleMacros(line.macros, tableFactor);
                     const cell = (macro: keyof typeof line.macros) => (
                       <td
                         className={`text-right tabular-nums ${line.counted ? CELL_TONES[macro] : ''}`}
                       >
-                        {line.counted ? formatNumber(line.macros[macro]) : '—'}
+                        {line.counted ? formatNumber(macros[macro]) : '—'}
                         {line.counted && line.missing.includes(macro) && (
                           <span className="text-amber-600">*</span>
                         )}
@@ -161,7 +188,9 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
                           {line.isOptional && <span className="ml-1 text-xs">· optional</span>}
                           {notes && <div className="text-xs text-sage-500">{notes}</div>}
                         </td>
-                        <td className="text-right tabular-nums">{formatNumber(line.quantityG)}</td>
+                        <td className="text-right tabular-nums">
+                          {formatNumber(line.quantityG * tableFactor)}
+                        </td>
                         {cell('kcal')}
                         {cell('proteinG')}
                         {cell('fatG')}

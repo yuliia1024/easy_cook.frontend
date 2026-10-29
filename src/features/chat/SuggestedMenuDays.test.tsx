@@ -28,19 +28,34 @@ describe('SuggestedMenuDays', () => {
       .getAllByRole('listitem')
       .map((meal) => meal.textContent);
     expect(meals).toEqual([
-      'BreakfastOatmeal302.8 kcalP 11.2 gF 5.9 gC 53.8 g',
-      'LunchRice bowl520 kcalP 10.8 gF 1.2 gC 112 g',
+      'BreakfastOatmeal1 serving302.8 kcalP 11.2 gF 5.9 gC 53.8 g',
+      'LunchRice bowl1 serving520 kcalP 10.8 gF 1.2 gC 112 g',
     ]);
     expect(day).toHaveTextContent('Day 1 total822.8 kcalProtein 22 gFat 7.1 gCarbs 165.8 g');
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
 
-  it('links a recipe that still exists', () => {
+  it('shows the servings fitted to the daily calories', () => {
+    const menu = buildSuggestedMenu();
+    const [day] = menu.days;
+    renderPage(
+      <SuggestedMenuDays
+        menu={{
+          ...menu,
+          days: [{ ...day!, meals: day!.meals.map((meal) => ({ ...meal, servings: 1.25 })) }],
+        }}
+      />,
+    );
+
+    expect(screen.getAllByText('1.25 servings')).toHaveLength(2);
+  });
+
+  it('links a recipe that still exists with the servings of the meal', () => {
     renderPage(<SuggestedMenuDays menu={buildSuggestedMenu()} />);
 
     expect(screen.getByRole('link', { name: 'Oatmeal' })).toHaveAttribute(
       'href',
-      '/recipes/22222222-2222-4222-8222-222222222222',
+      '/recipes/22222222-2222-4222-8222-222222222222?servings=1',
     );
     expect(screen.queryByRole('link', { name: 'Rice bowl' })).not.toBeInTheDocument();
   });

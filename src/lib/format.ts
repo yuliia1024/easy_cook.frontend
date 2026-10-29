@@ -1,9 +1,20 @@
 const numberFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 1 });
+const servingsFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2 });
 const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
 
 /** A nutrient value; null is unknown and shown as a dash, never as 0. */
 export function formatNumber(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : numberFormat.format(value);
+}
+
+/** Servings of a menu meal, in quarters (1.25), so two decimals. */
+export function formatServings(value: number): string {
+  return servingsFormat.format(value);
+}
+
+/** "1 serving", "1.25 servings". */
+export function servingsLabel(value: number): string {
+  return `${formatServings(value)} ${value === 1 ? 'serving' : 'servings'}`;
 }
 
 export function formatDate(iso: string): string {

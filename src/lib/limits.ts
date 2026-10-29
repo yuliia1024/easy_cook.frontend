@@ -49,3 +49,6 @@ export const MESSAGE_MAX_LENGTH = 300;
 
 // MENU_TITLE_MAX_LENGTH in the backend (`constants/menu.ts`).
 export const MENU_TITLE_MAX_LENGTH = 255;
+
+// MENU_SERVINGS_MIN and MENU_SERVINGS_MAX in the backend (`constants/menu.ts`).
+export const MENU_SERVINGS_LIMITS = { min: 0.5, max: 2 } as const;
