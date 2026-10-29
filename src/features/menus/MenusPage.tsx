@@ -1,6 +1,8 @@
 import { Link } from 'react-router';
+import { buttonClass } from '../../components/button-class';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { CalendarIcon } from '../../components/icons';
 import { PageHeader } from '../../components/PageHeader';
 import { Spinner } from '../../components/Spinner';
 import { formatDate } from '../../lib/format';
@@ -21,28 +23,39 @@ export function MenusPage() {
         ) : menus.isError ? (
           <ErrorAlert error={menus.error} onRetry={() => void menus.refetch()} />
         ) : menus.data.length === 0 ? (
-          <EmptyState title="No menus yet" />
+          <EmptyState
+            title="No menus yet"
+            icon={<CalendarIcon size={26} />}
+            action={
+              <Link to="/chat" className={buttonClass()}>
+                Open Chat
+              </Link>
+            }
+          >
+            Ask the assistant in Chat to plan up to 7 days, and the result will be saved here as a
+            draft.
+          </EmptyState>
         ) : (
           <ul className="space-y-3">
             {menus.data.map((menu) => (
               <li key={menu.id}>
                 <Link
                   to={`/menus/${menu.id}`}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white p-4 hover:border-green-600 hover:shadow-sm"
+                  className="card flex flex-wrap items-center justify-between gap-2 px-6 py-4.5 transition-colors hover:border-brand-100"
                 >
                   <span>
-                    <span className="font-semibold">{menu.title}</span>
-                    <span className="mt-1 block text-xs text-stone-500">
+                    <span className="text-base font-semibold">{menu.title}</span>
+                    <span className="mt-1 block text-xs text-sage-500">
                       {menu.versionCount} {menu.versionCount === 1 ? 'version' : 'versions'} ·
                       updated {formatDate(menu.updatedAt)}
                     </span>
                   </span>
                   {menu.confirmedVersionId ? (
-                    <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-800">
+                    <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800">
                       confirmed
                     </span>
                   ) : (
-                    <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600">
+                    <span className="rounded-full bg-sage-100 px-2.5 py-1 text-xs font-medium text-sage-700">
                       draft
                     </span>
                   )}

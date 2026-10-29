@@ -130,7 +130,7 @@ export function ManualGoalForm({
       </div>
       {caloriesChanged && (
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-stone-600">
+          <p className="text-sm text-sage-600">
             Calories changed. Recalculate protein, fat and carbs for the new goal?
           </p>
           <Button
@@ -146,13 +146,13 @@ export function ManualGoalForm({
         <ErrorAlert error={recalculate.error} title="Could not recalculate the macros" />
       )}
       {impliedKcal !== null && (
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-sage-500">
           From macros (4/9/4 kcal/g): ≈ {impliedKcal} kcal
           {shares &&
             GOAL_MACROS.map((macro) => ` · ${MACRO_LABELS[macro]} ${percent(shares[macro])} %`)}
         </p>
       )}
-      <p className="text-xs text-stone-500">{MACRO_RULES}</p>
+      <p className="text-xs text-sage-500">{MACRO_RULES}</p>
       <Field
         label="Effective from"
         htmlFor="goal-effectiveFrom"

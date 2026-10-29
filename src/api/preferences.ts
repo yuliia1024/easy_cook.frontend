@@ -6,5 +6,6 @@ export const preferencesApi = {
   list: (): Promise<DietaryPreference[]> => request('/preferences'),
   add: (input: DietaryPreferenceInput): Promise<DietaryPreference> =>
     request('/preferences', { method: 'POST', body: input }),
-  remove: (id: string): Promise<void> => request(`/preferences/${id}`, { method: 'DELETE' }),
+  remove: (id: string): Promise<void> =>
+    request(`/preferences/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };

@@ -34,11 +34,8 @@ export function ProfilePage() {
         Profile data is used to calculate daily calorie and macro targets.
       </PageHeader>
 
-      <section
-        aria-labelledby="profile-heading"
-        className="mb-10 rounded-lg border border-stone-200 bg-white p-5"
-      >
-        <h2 id="profile-heading" className="mb-4 text-lg font-semibold">
+      <section aria-labelledby="profile-heading" className="card mb-9">
+        <h2 id="profile-heading" className="mb-4 text-lg font-bold">
           Profile
         </h2>
         {profile.isPending ? (
@@ -48,7 +45,7 @@ export function ProfilePage() {
         ) : (
           <>
             {!profile.data && (
-              <p className="mb-4 text-sm text-stone-600">
+              <p className="mb-4 text-sm text-sage-600">
                 The profile is not filled in yet. Goals cannot be calculated without it.
               </p>
             )}
@@ -68,27 +65,27 @@ function GoalsSection({ sex }: { sex: Sex }) {
   const history = useGoalHistory(true);
 
   return (
-    <section aria-labelledby="goals-heading" className="space-y-6">
+    <section aria-labelledby="goals-heading" className="space-y-4">
       <div>
-        <h2 id="goals-heading" className="text-lg font-semibold">
+        <h2 id="goals-heading" className="mb-3 text-lg font-bold">
           Daily nutrition goals
         </h2>
-        <p className="mt-1 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+        <p className="rounded-[14px] bg-note-bg px-4.5 py-3.5 text-sm/normal text-note-fg">
           Calculated values are guidelines for menu planning, not medical advice. If you have a
           medical condition, are pregnant or have special needs, consult a doctor or dietitian.
         </p>
       </div>
 
-      <div>
-        <h3 className="mb-2 text-sm font-medium text-stone-600">Current goal</h3>
+      <div className="card">
+        <h3 className="caption mb-3">Current goal</h3>
         {current.isPending ? (
           <Spinner />
         ) : current.isError ? (
           <ErrorAlert error={current.error} onRetry={() => void current.refetch()} />
         ) : current.data ? (
           <>
-            <MacrosSummary values={toMacros(current.data)} />
-            <p className="mt-2 text-xs text-stone-500">
+            <MacrosSummary values={toMacros(current.data)} framed={false} />
+            <p className="mt-3 text-xs text-sage-500">
               Set {CALCULATION_MODE_LABELS[current.data.calculationMode]}
               {current.data.ruleVersion && ` (rules ${current.data.ruleVersion})`}, effective from{' '}
               {formatDate(current.data.effectiveFrom)}.
@@ -101,8 +98,12 @@ function GoalsSection({ sex }: { sex: Sex }) {
         )}
       </div>
 
-      <div className="rounded-lg border border-stone-200 bg-white p-5">
-        <div role="group" aria-label="Goal mode" className="mb-4 flex gap-2">
+      <div className="card">
+        <div
+          role="group"
+          aria-label="Goal mode"
+          className="mb-4 inline-flex gap-1 rounded-xl bg-sage-100 p-1"
+        >
           {(
             [
               ['rules', 'By formula'],
@@ -114,7 +115,7 @@ function GoalsSection({ sex }: { sex: Sex }) {
               type="button"
               aria-pressed={mode === value}
               onClick={() => setMode(value)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${mode === value ? 'bg-green-700 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}
+              className={`h-8.5 rounded-[10px] px-4 text-sm ${mode === value ? 'bg-brand-700 font-semibold text-white' : 'font-medium text-sage-700 hover:bg-white'}`}
             >
               {label}
             </button>
@@ -131,47 +132,44 @@ function GoalsSection({ sex }: { sex: Sex }) {
         )}
       </div>
 
-      <div>
-        <h3 className="mb-2 text-sm font-medium text-stone-600">Goal history</h3>
+      <div className="pt-5">
+        <h3 className="mb-3 text-base font-bold">Goal history</h3>
         {history.isPending ? (
           <Spinner />
         ) : history.isError ? (
           <ErrorAlert error={history.error} onRetry={() => void history.refetch()} />
         ) : history.data.length === 0 ? (
-          <p className="text-sm text-stone-500">Empty.</p>
+          <p className="text-sm text-sage-500">Empty.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-stone-100 text-left text-xs uppercase tracking-wide text-stone-600">
+          <div className="card overflow-x-auto p-0">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <th className="px-3 py-2">Effective from</th>
-                  <th className="px-3 py-2">Mode</th>
-                  <th className="px-3 py-2 text-right">Kcal</th>
-                  <th className="px-3 py-2 text-right">P, g</th>
-                  <th className="px-3 py-2 text-right">F, g</th>
-                  <th className="px-3 py-2 text-right">C, g</th>
+                  <th>Effective from</th>
+                  <th>Mode</th>
+                  <th className="text-right">Kcal</th>
+                  <th className="text-right">P, g</th>
+                  <th className="text-right">F, g</th>
+                  <th className="text-right">C, g</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-100">
+              <tbody>
                 {history.data.map((goal) => (
-                  <tr key={goal.id} className={goal.id === current.data?.id ? 'bg-green-50' : ''}>
-                    <td className="px-3 py-2">{formatDate(goal.effectiveFrom)}</td>
-                    <td className="px-3 py-2">
+                  <tr
+                    key={goal.id}
+                    className={goal.id === current.data?.id ? 'bg-brand-50/60' : ''}
+                  >
+                    <td>{formatDate(goal.effectiveFrom)}</td>
+                    <td>
                       {CALCULATION_MODE_LABELS[goal.calculationMode]}
                       {goal.ruleVersion && (
-                        <span className="text-xs text-stone-500"> · {goal.ruleVersion}</span>
+                        <span className="text-xs text-sage-500"> · {goal.ruleVersion}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {formatNumber(goal.caloriesKcal)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {formatNumber(goal.proteinG)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">{formatNumber(goal.fatG)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {formatNumber(goal.carbsG)}
-                    </td>
+                    <td className="text-right tabular-nums">{formatNumber(goal.caloriesKcal)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(goal.proteinG)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(goal.fatG)}</td>
+                    <td className="text-right tabular-nums">{formatNumber(goal.carbsG)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -188,8 +186,8 @@ function RuleBasedGoal() {
   const calculate = useCalculateGoal();
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-stone-600">
+    <div className="space-y-4">
+      <p className="text-sm/relaxed text-sage-500">
         Basal metabolic rate (Mifflin-St Jeor) times the activity factor; −15% to lose weight, +10%
         to gain muscle. Protein 1.6–2.0 g per kg of body weight, fat 25% of calories, carbs the
         rest.

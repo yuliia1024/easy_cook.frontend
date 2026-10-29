@@ -13,9 +13,9 @@ export function ErrorAlert({ error, onRetry, title }: Props) {
   return (
     <div
       role="alert"
-      className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+      className="rounded-[14px] border border-red-200 bg-red-50 px-4.5 py-3.5 text-sm text-red-800"
     >
-      <p className="font-medium">{title ?? errorMessage(error)}</p>
+      <p className="font-semibold">{title ?? errorMessage(error)}</p>
       {title && <p>{errorMessage(error)}</p>}
       {details.length > 0 && (
         <ul className="mt-2 list-disc pl-5">

@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router';
-import type { DietaryPreference, DietTag } from '../../api/types';
+import type { DietaryPreference, DietTag, PreferenceType } from '../../api/types';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { Field } from '../../components/Field';
+import { CloseIcon } from '../../components/icons';
 import { PageHeader } from '../../components/PageHeader';
 import { Spinner } from '../../components/Spinner';
 import { DIET_TAG_LABELS, PREFERENCE_TYPE_LABELS, toOptions } from '../../lib/labels';
@@ -23,6 +24,13 @@ const preferenceLabel = (preference: DietaryPreference): string =>
     ? (DIET_TAG_LABELS[preference.value as DietTag] ?? preference.value)
     : preference.value;
 
+const TYPE_CHIP_CLASSES: Record<PreferenceType, string> = {
+  diet: 'bg-brand-50 text-brand-800',
+  allergy: 'bg-danger-bg text-danger',
+  excluded_ingredient: 'bg-sage-100 text-sage-700',
+  disliked_food: 'bg-fat-bg text-fat-fg',
+};
+
 export function PreferencesPage() {
   const preferences = usePreferences();
 
@@ -38,12 +46,12 @@ export function PreferencesPage() {
         <ErrorAlert error={preferences.error} onRetry={() => void preferences.refetch()} />
       ) : preferences.data === null ? (
         <EmptyState title="Fill in the profile first">
-          <Link to="/profile" className="text-green-800 hover:underline">
+          <Link to="/profile" className="text-brand-800 hover:underline">
             Go to the profile
           </Link>
         </EmptyState>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
+        <div className="grid items-start gap-6 lg:grid-cols-[1fr_330px]">
           <PreferenceList preferences={preferences.data} />
           <PreferenceForm />
         </div>
@@ -61,14 +69,19 @@ function PreferenceList({ preferences }: { preferences: DietaryPreference[] }) {
   return (
     <section aria-label="Saved preferences">
       {remove.isError && <ErrorAlert error={remove.error} title="Could not delete" />}
-      <ul className="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
+      <ul className="card p-2">
         {preferences.map((preference) => (
-          <li key={preference.id} className="flex items-center justify-between gap-3 px-4 py-2">
-            <span className="text-sm">
-              <span className="text-xs uppercase tracking-wide text-stone-500">
+          <li
+            key={preference.id}
+            className="flex items-center justify-between gap-3 rounded-[14px] px-4 py-3 hover:bg-sage-25"
+          >
+            <span className="flex flex-wrap items-center gap-3">
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-medium ${TYPE_CHIP_CLASSES[preference.preferenceType]}`}
+              >
                 {PREFERENCE_TYPE_LABELS[preference.preferenceType]}
               </span>{' '}
-              <span className="font-medium">{preferenceLabel(preference)}</span>
+              <span className="font-semibold">{preferenceLabel(preference)}</span>
             </span>
             <Button
               variant="ghost"
@@ -76,7 +89,7 @@ function PreferenceList({ preferences }: { preferences: DietaryPreference[] }) {
               disabled={remove.isPending}
               onClick={() => remove.mutate(preference.id)}
             >
-              ✕
+              <CloseIcon size={18} />
             </Button>
           </li>
         ))}
@@ -110,8 +123,9 @@ function PreferenceForm() {
       onSubmit={handleSubmit(onSubmit)}
       noValidate
       aria-label="Add a preference"
-      className="space-y-3 rounded-lg border border-stone-200 bg-white p-4"
+      className="card flex flex-col gap-4"
     >
+      <h2 className="text-base font-bold">Add preference</h2>
       <Field label="Type" htmlFor="preferenceType">
         <select id="preferenceType" className="input" {...register('preferenceType')}>
           {toOptions(PREFERENCE_TYPE_LABELS).map((option) => (
@@ -148,7 +162,7 @@ function PreferenceForm() {
         </Field>
       )}
       {add.isError && <ErrorAlert error={add.error} title="Could not add the preference" />}
-      <Button type="submit" loading={add.isPending}>
+      <Button type="submit" className="self-start" loading={add.isPending}>
         Add
       </Button>
     </form>

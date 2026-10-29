@@ -131,4 +131,18 @@ describe('FoodFormPage', () => {
     expect(body).toMatchObject({ state: 'boiled' });
     expect(body).not.toHaveProperty('source');
   });
+
+  it('cancels back to the food, or to the list for a new one', async () => {
+    const food = buildFood();
+    server.use(http.get(api(`/foods/${food.id}`), () => HttpResponse.json(food)));
+    const { unmount } = renderRoutes(routes, `/foods/${food.id}/edit`);
+
+    expect(await screen.findByRole('link', { name: 'Cancel' })).toHaveAttribute(
+      'href',
+      `/foods/${food.id}`,
+    );
+    unmount();
+    renderRoutes(routes, '/foods/new');
+    expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/foods');
+  });
 });

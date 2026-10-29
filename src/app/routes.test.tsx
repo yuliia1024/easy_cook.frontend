@@ -12,14 +12,11 @@ describe('routes', () => {
     expect(await screen.findByRole('heading', { name: 'Chat', level: 1 })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/chat');
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
-    expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual([
-      'Chat',
-      'Menus',
-      'Profile & goals',
-      'Preferences',
-      'Foods',
-      'Recipes',
-    ]);
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Chat', 'Menus', 'Profile & goals', 'Preferences', 'Foods', 'Recipes']);
   });
 
   it('goes to the chat when the logo is clicked', async () => {
@@ -53,5 +50,6 @@ describe('routes', () => {
   it('shows a not found page', async () => {
     renderRoutes(routes, '/nowhere');
     expect(await screen.findByText('Page not found')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to the chat' })).toHaveAttribute('href', '/');
   });
 });

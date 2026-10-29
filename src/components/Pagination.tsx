@@ -12,8 +12,8 @@ export function Pagination({ page, limit, total, onChange }: Props) {
   if (pages <= 1) return null;
 
   return (
-    <nav aria-label="Pagination" className="mt-4 flex items-center justify-between gap-2 text-sm">
-      <span className="text-stone-600">
+    <nav aria-label="Pagination" className="mt-5 flex items-center justify-between gap-2 text-sm">
+      <span className="text-sage-500">
         Page {page} of {pages} · {total} records
       </span>
       <div className="flex gap-2">

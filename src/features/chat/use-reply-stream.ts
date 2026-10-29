@@ -5,6 +5,7 @@ import { useMemo, useRef } from 'react';
 import { createReplyTransport } from '../../api/conversations';
 import { ApiError } from '../../api/http';
 import type { MessageRole, SuggestedMenu } from '../../api/types';
+import { menuKeys } from '../menus/menus.queries';
 import { chatKeys } from './chat.queries';
 
 export interface PendingMessage {
@@ -54,6 +55,8 @@ export function useReplyStream(id: string) {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: chatKeys.detail(id) }),
       queryClient.invalidateQueries({ queryKey: chatKeys.list() }),
+      // A reply may plan a new menu or a new version of one.
+      queryClient.invalidateQueries({ queryKey: menuKeys.all }),
     ]);
     chat.setMessages([]);
     return !failed.current;
