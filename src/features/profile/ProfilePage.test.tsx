@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react';
+import type { NutritionGoal } from '../../api/types';
 import { formatNumber } from '../../lib/format';
 import { buildGoal, buildProfile } from '../../test/fixtures';
 import { renderPage } from '../../test/render';
@@ -11,7 +12,10 @@ const num = (value: number): string => formatNumber(value).replace(/\s/g, ' ');
 
 const render = () => renderPage(<ProfilePage />, '/profile', '/profile');
 
-function withProfileAndGoals({ current = buildGoal(), history = [buildGoal()] } = {}) {
+function withProfileAndGoals({
+  current = buildGoal(),
+  history = [buildGoal()],
+}: { current?: NutritionGoal | null; history?: NutritionGoal[] } = {}) {
   server.use(
     http.get(api('/profile'), () => HttpResponse.json(buildProfile())),
     http.get(api('/nutrition/goals/current'), () =>
@@ -304,5 +308,47 @@ describe('ProfilePage', () => {
     server.use(http.get(api('/profile'), () => apiError(503, 'Database is unavailable')));
     render();
     expect(await screen.findByRole('alert')).toHaveTextContent('Database is unavailable');
+  });
+
+  it('opens the goal mode of the newest goal in the history', async () => {
+    withProfileAndGoals({
+      history: [
+        buildGoal({ id: 'newest', calculationMode: 'manual', ruleVersion: null }),
+        buildGoal({ id: 'older', calculationMode: 'rule_based' }),
+      ],
+    });
+    const { user } = render();
+
+    expect(await screen.findByRole('form', { name: 'Manual goal' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Manual' })).toHaveAttribute('aria-pressed', 'true');
+
+    // A pick on the switch wins over the history.
+    await user.click(screen.getByRole('button', { name: 'By formula' }));
+    expect(screen.getByRole('button', { name: 'By formula' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByRole('form', { name: 'Manual goal' })).not.toBeInTheDocument();
+  });
+
+  it('opens the formula when the newest goal was calculated or there is none', async () => {
+    withProfileAndGoals({
+      history: [
+        buildGoal({ id: 'newest', calculationMode: 'rule_based' }),
+        buildGoal({ id: 'older', calculationMode: 'manual', ruleVersion: null }),
+      ],
+    });
+    const { unmount } = render();
+
+    expect(await screen.findByRole('button', { name: 'Set as current goal' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'By formula' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    unmount();
+
+    withProfileAndGoals({ current: null, history: [] });
+    render();
+    expect(await screen.findByRole('button', { name: 'Set as current goal' })).toBeInTheDocument();
   });
 });

@@ -59,10 +59,17 @@ export function ProfilePage() {
   );
 }
 
+type GoalMode = 'rules' | 'manual';
+
 function GoalsSection({ sex }: { sex: Sex }) {
-  const [mode, setMode] = useState<'rules' | 'manual'>('rules');
+  /** The mode picked on the switch; until then it follows the newest goal in the history. */
+  const [picked, setPicked] = useState<GoalMode | null>(null);
   const current = useCurrentGoal(true);
   const history = useGoalHistory(true);
+  const latest = history.data?.[0]?.calculationMode;
+  // Null while the history loads, so the switch does not flip once it arrives.
+  const mode: GoalMode | null =
+    picked ?? (history.isPending ? null : latest === 'manual' ? 'manual' : 'rules');
 
   return (
     <section aria-labelledby="goals-heading" className="space-y-4">
@@ -114,20 +121,23 @@ function GoalsSection({ sex }: { sex: Sex }) {
               key={value}
               type="button"
               aria-pressed={mode === value}
-              onClick={() => setMode(value)}
+              onClick={() => setPicked(value)}
               className={`h-8.5 rounded-[10px] px-4 text-sm ${mode === value ? 'bg-brand-700 font-semibold text-white' : 'font-medium text-sage-700 hover:bg-white'}`}
             >
               {label}
             </button>
           ))}
         </div>
-        {mode === 'rules' ? (
+        {mode === null ? (
+          <Spinner />
+        ) : mode === 'rules' ? (
           <RuleBasedGoal />
         ) : (
           <ManualGoalForm
             current={current.data ?? null}
             sex={sex}
-            onSaved={() => setMode('rules')}
+            // The saved goal is now the newest one: follow the history again.
+            onSaved={() => setPicked(null)}
           />
         )}
       </div>
