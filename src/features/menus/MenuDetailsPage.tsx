@@ -10,8 +10,9 @@ import { Field } from '../../components/Field';
 import { MacrosSummary } from '../../components/MacrosSummary';
 import { PageHeader } from '../../components/PageHeader';
 import { Spinner } from '../../components/Spinner';
-import { formatDate, formatNumber } from '../../lib/format';
+import { formatDate, formatNumber, formatServings } from '../../lib/format';
 import { MEAL_TYPE_LABELS, MENU_GENERATED_BY_LABELS } from '../../lib/labels';
+import { menuRecipePath } from '../../lib/menu-servings';
 import { menuTitleSchema, type MenuTitleOutput, type MenuTitleValues } from './menu-title.schema';
 import { useConfirmMenuVersion, useDeleteMenu, useMenu, useRenameMenu } from './menus.queries';
 
@@ -262,7 +263,10 @@ function DayView({ day, goalKcal, issues }: DayViewProps) {
               <td>{MEAL_TYPE_LABELS[meal.mealType]}</td>
               <td>
                 {meal.recipeId ? (
-                  <Link to={`/recipes/${meal.recipeId}`} className="hover:underline">
+                  <Link
+                    to={menuRecipePath(meal.recipeId, meal.servings)}
+                    className="hover:underline"
+                  >
                     {meal.recipe.name}
                   </Link>
                 ) : (
@@ -280,7 +284,7 @@ function DayView({ day, goalKcal, issues }: DayViewProps) {
                   </span>
                 )}
               </td>
-              <td className="text-right tabular-nums">{formatNumber(meal.servings)}</td>
+              <td className="text-right tabular-nums">{formatServings(meal.servings)}</td>
               <td className="text-right tabular-nums">{formatNumber(meal.nutrition.kcal)}</td>
               <td className="text-right tabular-nums">{formatNumber(meal.nutrition.proteinG)}</td>
               <td className="text-right tabular-nums">{formatNumber(meal.nutrition.fatG)}</td>

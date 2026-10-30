@@ -1,4 +1,11 @@
-import { formatDate, formatNumber, hasMaxDecimals, parseOptionalNumber } from './format';
+import {
+  formatDate,
+  formatNumber,
+  formatServings,
+  hasMaxDecimals,
+  parseOptionalNumber,
+  servingsLabel,
+} from './format';
 
 describe('formatNumber', () => {
   it('shows unknown values as a dash, not 0', () => {
@@ -9,6 +16,20 @@ describe('formatNumber', () => {
 
   it('keeps one decimal with a dot as the separator', () => {
     expect(formatNumber(12.345)).toBe('12.3');
+  });
+});
+
+describe('formatServings', () => {
+  it('keeps the quarters of a serving', () => {
+    expect(formatServings(1.25)).toBe('1.25');
+    expect(formatServings(1.5)).toBe('1.5');
+    expect(formatServings(2)).toBe('2');
+  });
+
+  it('names one serving and more', () => {
+    expect(servingsLabel(1)).toBe('1 serving');
+    expect(servingsLabel(0.75)).toBe('0.75 servings');
+    expect(servingsLabel(1.25)).toBe('1.25 servings');
   });
 });
 
