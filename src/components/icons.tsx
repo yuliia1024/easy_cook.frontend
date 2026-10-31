@@ -65,3 +65,9 @@ export const CalendarIcon = (props: Props) => (
     <path d="M4 10h16M9 3v4M15 3v4" />
   </Icon>
 );
+
+export const ChevronIcon = (props: Props) => (
+  <Icon {...props}>
+    <path d="M9 6l6 6-6 6" />
+  </Icon>
+);

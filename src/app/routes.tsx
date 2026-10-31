@@ -73,7 +73,7 @@ export const routes: RouteObject[] = [
       {
         path: 'menus/:id',
         lazy: async () => ({
-          Component: (await import('../features/menus/MenuDetailsPage')).MenuDetailsPage,
+          Component: (await import('../features/menus/MenusPage')).MenusPage,
         }),
       },
       {

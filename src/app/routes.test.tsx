@@ -34,7 +34,6 @@ describe('routes', () => {
   });
 
   it.each([
-    ['/menus', 'Menus'],
     ['/chat', 'Chat'],
     ['/preferences', 'Dietary preferences'],
   ])('opens %s', async (path, heading) => {
@@ -45,6 +44,13 @@ describe('routes', () => {
     );
     renderRoutes(routes, path);
     expect(await screen.findByRole('heading', { name: heading, level: 1 })).toBeInTheDocument();
+  });
+
+  it('opens /menus with the saved menus list', async () => {
+    server.use(http.get(api('/menus'), () => HttpResponse.json([])));
+    renderRoutes(routes, '/menus');
+    expect(await screen.findByRole('navigation', { name: 'Saved menus' })).toBeInTheDocument();
+    expect(await screen.findByText('No active menu yet')).toBeInTheDocument();
   });
 
   it('shows a not found page', async () => {
