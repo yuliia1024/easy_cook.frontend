@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import {
   buildConversation,
   buildConversationSummary,
+  buildMenu,
   buildMessage,
   buildSuggestedMenu,
   CONVERSATION_ID,
@@ -50,6 +51,7 @@ describe('ChatPage', () => {
     let sent: unknown;
     let answered = false;
     server.use(
+      http.get(api('/menus/m'), () => HttpResponse.json(buildMenu({ id: 'm' }))),
       http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
       http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
         HttpResponse.json(
@@ -312,6 +314,85 @@ describe('ChatPage', () => {
       'href',
       '/menus/m',
     );
+  });
+
+  describe('confirming the menu of a reply', () => {
+    const OTHER_VERSION_ID = '99999999-9999-4999-8999-999999999999';
+    const reply = (id: string, menuVersionId: string) =>
+      buildMessage({
+        id,
+        role: 'assistant',
+        content: `Reply ${id}`,
+        menuId: MENU_ID,
+        menuVersionId,
+        suggestedMenu: buildSuggestedMenu(),
+      });
+    const showReplies = (confirmed: () => string | null) =>
+      server.use(
+        http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+        http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+          HttpResponse.json(
+            buildConversation({
+              menuId: MENU_ID,
+              messages: [reply('first', VERSION_ID), reply('second', OTHER_VERSION_ID)],
+            }),
+          ),
+        ),
+        http.get(api(`/menus/${MENU_ID}`), () =>
+          HttpResponse.json(buildMenu({ confirmedVersionId: confirmed() })),
+        ),
+      );
+    const bubbleOf = async (text: string) =>
+      (await screen.findByText(text)).closest('li') as HTMLElement;
+
+    it('confirms the version of a reply, then switches to another one', async () => {
+      let confirmed: string | null = null;
+      const posted: string[] = [];
+      showReplies(() => confirmed);
+      server.use(
+        http.post(api(`/menus/${MENU_ID}/versions/:versionId/confirm`), ({ params }) => {
+          confirmed = params.versionId as string;
+          posted.push(confirmed);
+          return HttpResponse.json(buildMenu({ confirmedVersionId: confirmed }));
+        }),
+      );
+      const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+      const first = await bubbleOf('Reply first');
+      const second = await bubbleOf('Reply second');
+
+      await user.click(await within(first).findByRole('button', { name: 'Confirm menu' }));
+
+      expect(await within(first).findByText('Confirmed')).toBeInTheDocument();
+      const instead = await within(second).findByRole('button', {
+        name: 'Confirm this version instead',
+      });
+
+      await user.click(instead);
+
+      expect(await within(second).findByText('Confirmed')).toBeInTheDocument();
+      expect(
+        await within(first).findByRole('button', { name: 'Confirm this version instead' }),
+      ).toBeInTheDocument();
+      expect(posted).toEqual([VERSION_ID, OTHER_VERSION_ID]);
+    });
+
+    it('shows why a version that breaks the preferences cannot be confirmed', async () => {
+      showReplies(() => null);
+      server.use(
+        http.post(api(`/menus/${MENU_ID}/versions/:versionId/confirm`), () =>
+          apiError(400, 'The menu breaks the profile rules: contains peanut'),
+        ),
+      );
+      const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+      const first = await bubbleOf('Reply first');
+
+      await user.click(await within(first).findByRole('button', { name: 'Confirm menu' }));
+
+      const alert = await within(first).findByRole('alert');
+      expect(alert).toHaveTextContent('Could not confirm the menu');
+      expect(alert).toHaveTextContent('contains peanut');
+      expect(within(first).getByRole('button', { name: 'Confirm menu' })).toBeInTheDocument();
+    });
   });
 
   it('does not send a message over 300 characters', async () => {

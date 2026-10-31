@@ -14,6 +14,8 @@ export interface PendingMessage {
   content: string;
   /** The draft menu the `data-menu` part was saved to. */
   menuId: string | null;
+  /** The draft version the `data-menu` part was saved as. */
+  menuVersionId: string | null;
   /** From the `data-menu` part. */
   suggestedMenu: SuggestedMenu | null;
 }
@@ -28,6 +30,7 @@ export function toPending(message: UIMessage): PendingMessage {
     role: message.role === 'user' ? 'user' : 'assistant',
     content,
     menuId: menu?.menuId ?? null,
+    menuVersionId: menu?.versionId ?? null,
     suggestedMenu: menu?.composition ?? null,
   };
 }
