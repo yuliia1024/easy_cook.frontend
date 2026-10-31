@@ -317,15 +317,15 @@ function MessageBubble({ message }: { message: Message | PendingMessage }) {
       {message.suggestedMenu && <SuggestedMenuDays menu={message.suggestedMenu} />}
       {message.menuId && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          {message.menuVersionId && (
-            <ConfirmVersion menuId={message.menuId} versionId={message.menuVersionId} />
-          )}
           <Link
             to={`/menus/${message.menuId}`}
             className="font-medium text-brand-800 hover:underline"
           >
             Open menu
           </Link>
+          {message.menuVersionId && (
+            <ConfirmVersion menuId={message.menuId} versionId={message.menuVersionId} />
+          )}
         </div>
       )}
     </li>
@@ -343,7 +343,7 @@ function ConfirmVersion({ menuId, versionId }: { menuId: string; versionId: stri
   if (!menu.data) return null;
   if (menu.data.confirmedVersionId === versionId) {
     return (
-      <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800">
+      <span className="ml-auto rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800">
         Confirmed
       </span>
     );
@@ -351,7 +351,7 @@ function ConfirmVersion({ menuId, versionId }: { menuId: string; versionId: stri
   return (
     <>
       <Button
-        variant="secondary"
+        className="ml-auto"
         onClick={() => confirm.mutate(versionId)}
         loading={confirm.isPending}
       >
