@@ -3,6 +3,8 @@ import {
   buildMenu,
   buildMenuMeal,
   buildMenuVersion,
+  buildNutrition,
+  buildRecipe,
   MENU_ID,
   VERSION_ID,
 } from '../../test/fixtures';
@@ -59,10 +61,7 @@ describe('MenuDetailsPage', () => {
     render();
 
     const day = await screen.findByRole('region', { name: 'Day 1 · 20 Oct 2026' });
-    expect(within(day).getByRole('link', { name: 'Buckwheat with chicken' })).toHaveAttribute(
-      'href',
-      '/recipes/22222222-2222-4222-8222-222222222222?servings=1',
-    );
+    expect(within(day).getByRole('button', { name: 'Buckwheat with chicken' })).toBeInTheDocument();
     expect(within(day).getByText('(deleted recipe)')).toBeInTheDocument();
     expect(within(day).getByRole('cell', { name: '1.25' })).toBeInTheDocument();
     expect(within(day).getByText('Day total')).toBeInTheDocument();
@@ -86,7 +85,24 @@ describe('MenuDetailsPage', () => {
       'Rename',
       'Delete',
       'Confirm this version',
+      'Buckwheat with chicken',
     ]);
+  });
+
+  it('opens the recipe of a meal in a dialog', async () => {
+    const recipe = buildRecipe({ id: '22222222-2222-4222-8222-222222222222' });
+    server.use(
+      http.get(api(`/menus/${MENU_ID}`), () => HttpResponse.json(buildMenu())),
+      http.get(api(`/recipes/${recipe.id}`), () => HttpResponse.json(recipe)),
+      http.get(api(`/recipes/${recipe.id}/nutrition`), () => HttpResponse.json(buildNutrition())),
+    );
+    const { user } = render();
+
+    await user.click(await screen.findByRole('button', { name: 'Buckwheat with chicken' }));
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Buckwheat with chicken' }),
+    ).toBeInTheDocument();
   });
 
   it('confirms a version and shows a rejection', async () => {

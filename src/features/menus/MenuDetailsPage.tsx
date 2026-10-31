@@ -2,19 +2,22 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router';
-import type { Menu, MenuDay, MenuIssue, MenuVersion } from '../../api/types';
+import type { Macro, Menu, MenuDay, MenuIssue, MenuMeal, MenuVersion } from '../../api/types';
 import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { Field } from '../../components/Field';
+import { MACRO_TEXT_TONES } from '../../components/macro-tones';
 import { MacrosSummary } from '../../components/MacrosSummary';
 import { PageHeader } from '../../components/PageHeader';
 import { Spinner } from '../../components/Spinner';
 import { formatDate, formatNumber, formatServings } from '../../lib/format';
 import { MEAL_TYPE_LABELS, MENU_GENERATED_BY_LABELS } from '../../lib/labels';
-import { menuRecipePath } from '../../lib/menu-servings';
+import { RecipeDialog } from '../recipes/RecipeDialog';
 import { menuTitleSchema, type MenuTitleOutput, type MenuTitleValues } from './menu-title.schema';
 import { useConfirmMenuVersion, useDeleteMenu, useMenu, useRenameMenu } from './menus.queries';
+
+const MEAL_MACROS: Macro[] = ['kcal', 'proteinG', 'fatG', 'carbsG'];
 
 const dayDate = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 
@@ -184,7 +187,7 @@ function VersionView({ version }: { version: MenuVersion }) {
     <div className="space-y-6">
       {version.notes && <p className="text-sm text-sage-700">{version.notes}</p>}
       <div className="grid gap-4 lg:grid-cols-2">
-        <MacrosSummary caption="Daily average" values={version.dailyAverage} />
+        <MacrosSummary caption="Daily average" values={version.dailyAverage} highlight />
         {goal ? (
           <MacrosSummary
             caption="Daily goal (when built)"
@@ -194,6 +197,7 @@ function VersionView({ version }: { version: MenuVersion }) {
               fatG: goal.fatG,
               carbsG: goal.carbsG,
             }}
+            highlight
           />
         ) : (
           <p className="text-sm text-sage-500">No nutrition goal was set when this was built.</p>
@@ -236,6 +240,7 @@ interface DayViewProps {
 }
 
 function DayView({ day, goalKcal, issues }: DayViewProps) {
+  const [opened, setOpened] = useState<MenuMeal | null>(null);
   const title = `Day ${day.dayIndex + 1}${day.date ? ` · ${dayDate.format(new Date(day.date))}` : ''}`;
   const hasError = (position: number): boolean =>
     issues.some(
@@ -252,9 +257,9 @@ function DayView({ day, goalKcal, issues }: DayViewProps) {
             <th>Recipe</th>
             <th className="text-right">Servings</th>
             <th className="text-right">Kcal</th>
-            <th className="text-right">P</th>
-            <th className="text-right">F</th>
-            <th className="text-right">C</th>
+            <th className="text-right text-protein-fg!">P</th>
+            <th className="text-right text-fat-fg!">F</th>
+            <th className="text-right text-carbs-fg!">C</th>
           </tr>
         </thead>
         <tbody>
@@ -263,12 +268,13 @@ function DayView({ day, goalKcal, issues }: DayViewProps) {
               <td>{MEAL_TYPE_LABELS[meal.mealType]}</td>
               <td>
                 {meal.recipeId ? (
-                  <Link
-                    to={menuRecipePath(meal.recipeId, meal.servings)}
-                    className="hover:underline"
+                  <button
+                    type="button"
+                    onClick={() => setOpened(meal)}
+                    className="text-left font-medium text-brand-800 hover:underline"
                   >
                     {meal.recipe.name}
-                  </Link>
+                  </button>
                 ) : (
                   <span>
                     {meal.recipe.name}{' '}
@@ -285,10 +291,11 @@ function DayView({ day, goalKcal, issues }: DayViewProps) {
                 )}
               </td>
               <td className="text-right tabular-nums">{formatServings(meal.servings)}</td>
-              <td className="text-right tabular-nums">{formatNumber(meal.nutrition.kcal)}</td>
-              <td className="text-right tabular-nums">{formatNumber(meal.nutrition.proteinG)}</td>
-              <td className="text-right tabular-nums">{formatNumber(meal.nutrition.fatG)}</td>
-              <td className="text-right tabular-nums">{formatNumber(meal.nutrition.carbsG)}</td>
+              {MEAL_MACROS.map((macro) => (
+                <td key={macro} className={`text-right tabular-nums ${MACRO_TEXT_TONES[macro]}`}>
+                  {formatNumber(meal.nutrition[macro])}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>
@@ -302,13 +309,21 @@ function DayView({ day, goalKcal, issues }: DayViewProps) {
                 </span>
               )}
             </td>
-            <td className="text-right tabular-nums">{formatNumber(day.totals.kcal)}</td>
-            <td className="text-right tabular-nums">{formatNumber(day.totals.proteinG)}</td>
-            <td className="text-right tabular-nums">{formatNumber(day.totals.fatG)}</td>
-            <td className="text-right tabular-nums">{formatNumber(day.totals.carbsG)}</td>
+            {MEAL_MACROS.map((macro) => (
+              <td key={macro} className={`text-right tabular-nums ${MACRO_TEXT_TONES[macro]}`}>
+                {formatNumber(day.totals[macro])}
+              </td>
+            ))}
           </tr>
         </tfoot>
       </table>
+      {opened?.recipeId && (
+        <RecipeDialog
+          recipeId={opened.recipeId}
+          servings={opened.servings}
+          onClose={() => setOpened(null)}
+        />
+      )}
     </section>
   );
 }
