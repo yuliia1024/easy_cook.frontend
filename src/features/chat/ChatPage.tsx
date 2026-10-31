@@ -8,6 +8,7 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { CloseIcon, PlusIcon, SendIcon, StopIcon } from '../../components/icons';
 import { Spinner } from '../../components/Spinner';
 import { MESSAGE_MAX_LENGTH } from '../../lib/limits';
+import { useConfirmMenuVersion, useMenu } from '../menus/menus.queries';
 import {
   useConversation,
   useConversations,
@@ -315,13 +316,52 @@ function MessageBubble({ message }: { message: Message | PendingMessage }) {
       <p className="whitespace-pre-line">{message.content}</p>
       {message.suggestedMenu && <SuggestedMenuDays menu={message.suggestedMenu} />}
       {message.menuId && (
-        <Link
-          to={`/menus/${message.menuId}`}
-          className="font-medium text-brand-800 hover:underline"
-        >
-          Open menu
-        </Link>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Link
+            to={`/menus/${message.menuId}`}
+            className="font-medium text-brand-800 hover:underline"
+          >
+            Open menu
+          </Link>
+          {message.menuVersionId && (
+            <ConfirmVersion menuId={message.menuId} versionId={message.menuVersionId} />
+          )}
+        </div>
       )}
     </li>
+  );
+}
+
+/**
+ * Confirms the menu version a reply was saved as. The backend checks it against the current
+ * preferences first; confirming another version of the menu replaces the confirmed one.
+ */
+function ConfirmVersion({ menuId, versionId }: { menuId: string; versionId: string }) {
+  const menu = useMenu(menuId);
+  const confirm = useConfirmMenuVersion(menuId);
+
+  if (!menu.data) return null;
+  if (menu.data.confirmedVersionId === versionId) {
+    return (
+      <span className="ml-auto rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800">
+        Confirmed
+      </span>
+    );
+  }
+  return (
+    <>
+      <Button
+        className="ml-auto"
+        onClick={() => confirm.mutate(versionId)}
+        loading={confirm.isPending}
+      >
+        {menu.data.confirmedVersionId ? 'Confirm this version instead' : 'Confirm menu'}
+      </Button>
+      {confirm.isError && (
+        <div className="w-full">
+          <ErrorAlert error={confirm.error} title="Could not confirm the menu" />
+        </div>
+      )}
+    </>
   );
 }

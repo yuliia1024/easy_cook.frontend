@@ -23,7 +23,14 @@ describe('toPending', () => {
           { type: 'text', text: 'lo' },
         ],
       }),
-    ).toEqual({ id: 'm', role: 'assistant', content: 'Hello', menuId: null, suggestedMenu: null });
+    ).toEqual({
+      id: 'm',
+      role: 'assistant',
+      content: 'Hello',
+      menuId: null,
+      menuVersionId: null,
+      suggestedMenu: null,
+    });
   });
 
   it('keeps the user role', () => {
@@ -32,6 +39,7 @@ describe('toPending', () => {
       role: 'user',
       content: 'Hi',
       menuId: null,
+      menuVersionId: null,
       suggestedMenu: null,
     });
   });
@@ -61,7 +69,12 @@ describe('toPending', () => {
           { type: 'data-menu', data: { menuId: 'm', versionId: 'v', composition: menu } },
         ],
       }),
-    ).toMatchObject({ content: 'Here is your day.', menuId: 'm', suggestedMenu: menu });
+    ).toMatchObject({
+      content: 'Here is your day.',
+      menuId: 'm',
+      menuVersionId: 'v',
+      suggestedMenu: menu,
+    });
   });
 });
 

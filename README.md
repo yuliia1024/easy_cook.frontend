@@ -25,7 +25,7 @@ database and seed). The dev server proxies `/api` to `API_PROXY_TARGET`
 
 | Path | |
 |---|---|
-| `/chat`, `/chat/:id` | home (`/` opens it); conversations with the assistant; a menu linked to a conversation or reply opens from it |
+| `/chat`, `/chat/:id` | home (`/` opens it); conversations with the assistant; a menu linked to a conversation or reply opens from it; a reply with a menu confirms its version (another version of the same menu is replaced; a version that breaks the current preferences shows why) |
 | `/foods` | search by name, filter by state and source, calories and macros per 100 g |
 | `/foods/:id`, `/foods/new`, `/foods/:id/edit` | details and form; an empty value is *unknown* (`null`), not 0 |
 | `/recipes` | search, meal type, diet tags (all must match), calories and macros per serving |
