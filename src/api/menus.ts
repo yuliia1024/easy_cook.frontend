@@ -1,8 +1,8 @@
 import { request } from './http';
-import type { Menu, MenuSummary } from './types';
+import type { Menu, MenuStatus, MenuSummary } from './types';
 
 export const menusApi = {
-  list: (): Promise<MenuSummary[]> => request('/menus'),
+  list: (status: MenuStatus): Promise<MenuSummary[]> => request(`/menus?status=${status}`),
   get: (id: string): Promise<Menu> => request(`/menus/${encodeURIComponent(id)}`),
   rename: (id: string, title: string): Promise<Menu> =>
     request(`/menus/${encodeURIComponent(id)}`, { method: 'PATCH', body: { title } }),

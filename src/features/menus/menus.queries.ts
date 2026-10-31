@@ -1,15 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { menusApi } from '../../api/menus';
-import type { Menu } from '../../api/types';
+import type { Menu, MenuStatus } from '../../api/types';
 
 export const menuKeys = {
   all: ['menus'] as const,
   list: () => [...menuKeys.all, 'list'] as const,
+  listOf: (status: MenuStatus) => [...menuKeys.list(), status] as const,
   detail: (id: string) => [...menuKeys.all, 'detail', id] as const,
 };
 
-export function useMenus() {
-  return useQuery({ queryKey: menuKeys.list(), queryFn: menusApi.list });
+export function useMenus(status: MenuStatus) {
+  return useQuery({ queryKey: menuKeys.listOf(status), queryFn: () => menusApi.list(status) });
 }
 
 export function useMenu(id: string | undefined) {

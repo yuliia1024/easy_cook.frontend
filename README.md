@@ -33,7 +33,7 @@ database and seed). The dev server proxies `/api` to `API_PROXY_TARGET`
 | `/recipes/new`, `/recipes/:id/edit` | form, ingredients picked from the food catalog, live calories and macros preview |
 | `/profile` | profile, current goal, rule based preview + save, manual goal, goal history |
 | `/preferences` | diets, allergies, excluded and disliked foods; menus follow them |
-| `/menus` | saved menus (draft / confirmed) |
+| `/menus` | saved menus: confirmed by default, `?status=draft` / `?status=all` for the drafts the chat planned |
 | `/menus/:id` | versions (newest first), daily average vs the goal, issues, days with meals and totals; rename, confirm a version, delete |
 
 Nutrition rules worth knowing:
