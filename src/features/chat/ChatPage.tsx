@@ -8,6 +8,7 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { CloseIcon, PlusIcon, SendIcon, StopIcon } from '../../components/icons';
 import { Spinner } from '../../components/Spinner';
 import { MESSAGE_MAX_LENGTH } from '../../lib/limits';
+import { useTypewriter } from '../../lib/use-typewriter';
 import { useConfirmMenuVersion, useMenu } from '../menus/menus.queries';
 import {
   useConversation,
@@ -15,8 +16,9 @@ import {
   useCreateConversation,
   useDeleteConversation,
 } from './chat.queries';
+import { MenuSkeleton } from './MenuSkeleton';
 import { SuggestedMenuDays } from './SuggestedMenuDays';
-import { useReplyStream, type PendingMessage } from './use-reply-stream';
+import { useReplyStream, type PendingMessage, type ReplyProgress } from './use-reply-stream';
 
 const SUGGESTIONS = [
   'Hi! What can you help me with?',
@@ -182,7 +184,13 @@ function Messages({ conversation }: { conversation: Conversation }) {
   const [draft, setDraft] = useState('');
   const content = draft.trim();
   const tooLong = draft.length > MESSAGE_MAX_LENGTH;
-  const messages = [...conversation.messages, ...reply.pending];
+  const saved = conversation.messages.length;
+  // The streamed reply shows up once it has text or a menu; until then its progress does.
+  const pending = reply.pending.filter(
+    (message) => message.role === 'user' || message.content || message.suggestedMenu,
+  );
+  const messages = [...conversation.messages, ...pending];
+  const answered = pending.some((message) => message.role === 'assistant');
 
   const submit = async (text: string = draft): Promise<void> => {
     const message = text.trim();
@@ -227,16 +235,9 @@ function Messages({ conversation }: { conversation: Conversation }) {
             {messages.map((message, index) => (
               // By position: a streamed reply gets its saved id later, and its bubble (with the
               // picked day of a suggested menu) has to stay mounted. Messages are only appended.
-              <MessageBubble key={index} message={message} />
+              <MessageBubble key={index} message={message} streamed={index >= saved} />
             ))}
-            {reply.isWaiting && (
-              <li
-                className="self-start rounded-[20px_20px_20px_6px] border border-sage-200 bg-white px-4.5 py-3 text-sm text-sage-500"
-                role="status"
-              >
-                The assistant is answering…
-              </li>
-            )}
+            {reply.isSending && !answered && <ReplyProgressBubble progress={reply.progress} />}
           </ol>
         )}
         {reply.error && <ErrorAlert error={reply.error} title="The message was not sent" />}
@@ -299,7 +300,34 @@ function Messages({ conversation }: { conversation: Conversation }) {
   );
 }
 
-function MessageBubble({ message }: { message: Message | PendingMessage }) {
+/** The step the assistant is on and the placeholders of the menu it plans, until the reply comes. */
+function ReplyProgressBubble({ progress }: { progress: ReplyProgress }) {
+  return (
+    <li
+      className={`flex flex-col gap-4 self-start rounded-[20px_20px_20px_6px] border border-sage-200 bg-white text-sm text-sage-500 ${progress.menu ? 'w-full p-5' : 'px-4.5 py-3'}`}
+    >
+      <p role="status" className="flex items-center gap-2">
+        <span
+          className="size-3.5 animate-spin rounded-full border-2 border-brand-700 border-t-transparent"
+          aria-hidden
+        />
+        {progress.status ? `${progress.status}…` : 'The assistant is answering…'}
+      </p>
+      {progress.menu && <MenuSkeleton menu={progress.menu} />}
+    </li>
+  );
+}
+
+/** A streamed reply types its text out; its menu shows up once the text is all there. */
+function MessageBubble({
+  message,
+  streamed,
+}: {
+  message: Message | PendingMessage;
+  streamed: boolean;
+}) {
+  const typed = useTypewriter(message.content, streamed && message.role === 'assistant');
+
   if (message.role === 'user') {
     return (
       <li className="max-w-[85%] self-end rounded-[20px_20px_6px_20px] bg-brand-700 px-4.5 py-3 text-[15px] text-white sm:max-w-[70%]">
@@ -313,9 +341,19 @@ function MessageBubble({ message }: { message: Message | PendingMessage }) {
       className={`flex flex-col gap-4 self-start rounded-[20px_20px_20px_6px] border border-sage-200 bg-white text-[15px]/normal ${message.suggestedMenu ? 'w-full p-5' : 'max-w-[85%] px-4.5 py-3 sm:max-w-[70%]'}`}
     >
       <span className="sr-only">Assistant: </span>
-      <p className="whitespace-pre-line">{message.content}</p>
-      {message.suggestedMenu && <SuggestedMenuDays menu={message.suggestedMenu} />}
-      {message.menuId && (
+      <p className="whitespace-pre-line">{typed.text}</p>
+      {message.suggestedMenu &&
+        (typed.done ? (
+          <SuggestedMenuDays menu={message.suggestedMenu} />
+        ) : (
+          <MenuSkeleton
+            menu={{
+              days: message.suggestedMenu.days.length,
+              mealTypes: message.suggestedMenu.days[0]?.meals.map(({ mealType }) => mealType) ?? [],
+            }}
+          />
+        ))}
+      {typed.done && message.menuId && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Link
             to={`/menus/${message.menuId}`}
