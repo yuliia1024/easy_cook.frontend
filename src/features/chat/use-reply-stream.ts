@@ -4,7 +4,7 @@ import type { UIMessage } from 'ai';
 import { useMemo, useRef } from 'react';
 import { createReplyTransport } from '../../api/conversations';
 import { ApiError } from '../../api/http';
-import type { MessageRole, SuggestedMenu } from '../../api/types';
+import type { MessageRole, StreamedMenu, SuggestedMenu } from '../../api/types';
 import { menuKeys } from '../menus/menus.queries';
 import { chatKeys } from './chat.queries';
 
@@ -12,8 +12,8 @@ export interface PendingMessage {
   id: string;
   role: MessageRole;
   content: string;
-  /** Streamed replies never link a saved menu. */
-  menuId: null;
+  /** The draft menu the `data-menu` part was saved to. */
+  menuId: string | null;
   /** From the `data-menu` part. */
   suggestedMenu: SuggestedMenu | null;
 }
@@ -21,13 +21,14 @@ export interface PendingMessage {
 /** The text of a streamed message and the menu it suggests; other data parts are left out. */
 export function toPending(message: UIMessage): PendingMessage {
   const content = message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('');
-  const menu = message.parts.find((part) => part.type === 'data-menu');
+  const part = message.parts.find((p) => p.type === 'data-menu');
+  const menu = part && 'data' in part ? (part.data as StreamedMenu) : null;
   return {
     id: message.id,
     role: message.role === 'user' ? 'user' : 'assistant',
     content,
-    menuId: null,
-    suggestedMenu: menu && 'data' in menu ? (menu.data as SuggestedMenu) : null,
+    menuId: menu?.menuId ?? null,
+    suggestedMenu: menu?.composition ?? null,
   };
 }
 

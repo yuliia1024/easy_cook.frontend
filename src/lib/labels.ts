@@ -8,6 +8,7 @@ import type {
   Macro,
   MealType,
   MenuGeneratedBy,
+  MenuStatus,
   PreferenceType,
   Sex,
 } from '../api/types';
@@ -89,6 +90,12 @@ export const PREFERENCE_TYPE_LABELS: Record<PreferenceType, string> = {
   allergy: 'Allergy',
   excluded_ingredient: 'Excluded ingredient',
   disliked_food: 'Disliked food',
+};
+
+export const MENU_STATUS_LABELS: Record<MenuStatus, string> = {
+  confirmed: 'Confirmed',
+  draft: 'Drafts',
+  all: 'All',
 };
 
 export const MENU_GENERATED_BY_LABELS: Record<MenuGeneratedBy, string> = {

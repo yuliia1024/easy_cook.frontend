@@ -262,7 +262,7 @@ describe('ChatPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('shows the suggested menu while it streams and after it is saved', async () => {
+  it('shows the suggested menu with a link to its draft while it streams and after it is saved', async () => {
     const menu = buildSuggestedMenu();
     let answered = false;
     server.use(
@@ -277,6 +277,8 @@ describe('ChatPage', () => {
                     id: 'reply',
                     role: 'assistant',
                     content: 'Here is your day.',
+                    menuId: 'm',
+                    menuVersionId: 'v',
                     suggestedMenu: menu,
                   }),
                 ]
@@ -291,7 +293,7 @@ describe('ChatPage', () => {
           { type: 'text-start', id: 'text' },
           { type: 'text-delta', id: 'text', delta: 'Here is your day.' },
           { type: 'text-end', id: 'text' },
-          { type: 'data-menu', data: menu },
+          { type: 'data-menu', data: { menuId: 'm', versionId: 'v', composition: menu } },
           { type: 'finish' },
         ]);
       }),
@@ -306,6 +308,10 @@ describe('ChatPage', () => {
       await within(messages).findByRole('region', { name: 'Suggested menu, day 1' }),
     ).toBeInTheDocument();
     expect(within(messages).getByRole('link', { name: 'Oatmeal' })).toBeInTheDocument();
+    expect(within(messages).getByRole('link', { name: 'Open menu' })).toHaveAttribute(
+      'href',
+      '/menus/m',
+    );
   });
 
   it('does not send a message over 300 characters', async () => {

@@ -19,7 +19,7 @@ describe('MenusPage', () => {
         ]),
       ),
     );
-    const { user, router } = renderRoutes(routes, '/menus');
+    const { user, router } = renderRoutes(routes, '/menus?status=all');
 
     const confirmed = await screen.findByRole('link', { name: /Menu for 1 day/ });
     expect(confirmed).toHaveTextContent('3 versions');
@@ -33,12 +33,42 @@ describe('MenusPage', () => {
     expect(router.state.location.pathname).toBe('/menus/other');
   });
 
+  it('shows the confirmed menus first and the drafts on request', async () => {
+    const statuses: Array<string | null> = [];
+    server.use(
+      http.get(api('/menus'), ({ request }) => {
+        const status = new URL(request.url).searchParams.get('status');
+        statuses.push(status);
+        return HttpResponse.json(
+          status === 'draft' ? [buildMenuSummary({ id: 'd', title: 'Draft menu' })] : [],
+        );
+      }),
+    );
+    const { user, router } = renderRoutes(routes, '/menus');
+
+    expect(await screen.findByText('No confirmed menus yet')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmed' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Drafts' }));
+
+    expect(await screen.findByRole('link', { name: /Draft menu/ })).toBeInTheDocument();
+    expect(router.state.location.search).toBe('?status=draft');
+    expect(statuses).toEqual(['confirmed', 'draft']);
+
+    await user.click(screen.getByRole('button', { name: 'Confirmed' }));
+    expect(await screen.findByText('No confirmed menus yet')).toBeInTheDocument();
+    expect(router.state.location.search).toBe('');
+  });
+
   it('shows an empty state that sends to the chat instead of creating a menu', async () => {
     server.use(http.get(api('/menus'), () => HttpResponse.json([])));
-    renderRoutes(routes, '/menus');
+    renderRoutes(routes, '/menus?status=all');
 
     expect(await screen.findByText('No menus yet')).toBeInTheDocument();
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /generate|create/i })).not.toBeInTheDocument();
     expect(screen.getByRole('link')).toHaveAttribute('href', '/chat');
     expect(screen.getByRole('link')).toHaveTextContent('Open Chat');
     expect(screen.queryByText(/generate/i)).not.toBeInTheDocument();

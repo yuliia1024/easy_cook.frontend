@@ -209,6 +209,9 @@ export type MenuIssueCode =
   | 'calories_off_target'
   | 'nutrition_incomplete';
 
+/** Which menus `GET /menus` lists; a menu is a draft until one of its versions is confirmed. */
+export type MenuStatus = 'confirmed' | 'draft' | 'all';
+
 export interface MenuSummary {
   id: string;
   title: string;
@@ -323,11 +326,18 @@ export interface SuggestedDay {
   complete: boolean;
 }
 
-/** A menu the assistant suggested in a reply; not a saved menu. */
+/** A menu the assistant suggested in a reply, saved as a draft menu version. */
 export interface SuggestedMenu {
   days: SuggestedDay[];
   dailyAverage: Macros;
   issues: MenuIssue[];
+}
+
+/** The `data-menu` part of a streamed reply: the menu and the draft version it was saved as. */
+export interface StreamedMenu {
+  menuId: string;
+  versionId: string;
+  composition: SuggestedMenu;
 }
 
 export interface Message {

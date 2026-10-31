@@ -49,7 +49,7 @@ describe('toPending', () => {
     ).toBe('How many days?');
   });
 
-  it('takes the suggested menu from the data-menu part', () => {
+  it('takes the suggested menu and its draft menu from the data-menu part', () => {
     const menu = buildSuggestedMenu();
 
     expect(
@@ -58,10 +58,10 @@ describe('toPending', () => {
         role: 'assistant',
         parts: [
           { type: 'text', text: 'Here is your day.' },
-          { type: 'data-menu', data: menu },
+          { type: 'data-menu', data: { menuId: 'm', versionId: 'v', composition: menu } },
         ],
       }),
-    ).toMatchObject({ content: 'Here is your day.', suggestedMenu: menu });
+    ).toMatchObject({ content: 'Here is your day.', menuId: 'm', suggestedMenu: menu });
   });
 });
 
