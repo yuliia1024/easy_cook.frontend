@@ -4,12 +4,14 @@ import type { UIMessage } from 'ai';
 import { useMemo, useRef, useState } from 'react';
 import { createReplyTransport } from '../../api/conversations';
 import { ApiError } from '../../api/http';
-import type {
-  MessageRole,
-  PendingMenu,
-  StreamedMenu,
-  StreamedStatus,
-  SuggestedMenu,
+import {
+  CONVERSATION_LIMIT_REACHED,
+  type MessageRole,
+  type PendingMenu,
+  type StreamedError,
+  type StreamedMenu,
+  type StreamedStatus,
+  type SuggestedMenu,
 } from '../../api/types';
 import { menuKeys } from '../menus/menus.queries';
 import { chatKeys } from './chat.queries';
@@ -56,12 +58,14 @@ const NO_PROGRESS: ReplyProgress = { status: null, menu: null };
  * message and the reply so far and `progress` the step under way and the menu being planned; once
  * it ends the conversation is refetched with both messages saved.
  * `stop` cancels the reply: the backend keeps the message but drops the unfinished reply.
+ * `limitReached` is set when the conversation is full: the backend did not save the message.
  */
 export function useReplyStream(id: string) {
   const queryClient = useQueryClient();
   const transport = useMemo(() => createReplyTransport(id), [id]);
   const failed = useRef(false);
   const [progress, setProgress] = useState<ReplyProgress>(NO_PROGRESS);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const chat = useChat({
     id,
     transport,
@@ -76,6 +80,8 @@ export function useReplyStream(id: string) {
       } else if (part.type === 'data-menu-pending') {
         const menu = part.data as PendingMenu;
         setProgress((current) => ({ ...current, menu }));
+      } else if (part.type === 'data-error') {
+        setErrorCode((part.data as StreamedError).code);
       }
     },
   });
@@ -84,6 +90,7 @@ export function useReplyStream(id: string) {
   const send = async (content: string): Promise<boolean> => {
     failed.current = false;
     setProgress(NO_PROGRESS);
+    setErrorCode(null);
     await chat.sendMessage({ text: content }, { body: { content } });
     setProgress(NO_PROGRESS);
     await Promise.all([
@@ -110,5 +117,6 @@ export function useReplyStream(id: string) {
     pending: chat.messages.map(toPending),
     progress,
     error,
+    limitReached: errorCode === CONVERSATION_LIMIT_REACHED,
   };
 }

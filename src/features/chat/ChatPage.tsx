@@ -7,7 +7,11 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { CloseIcon, PlusIcon, SendIcon, StopIcon } from '../../components/icons';
 import { Spinner } from '../../components/Spinner';
-import { MESSAGE_MAX_LENGTH } from '../../lib/limits';
+import {
+  CONVERSATION_LONG_USER_MESSAGES,
+  CONVERSATION_MAX_USER_MESSAGES,
+  MESSAGE_MAX_LENGTH,
+} from '../../lib/limits';
 import { useTypewriter } from '../../lib/use-typewriter';
 import { useConfirmMenuVersion, useMenu } from '../menus/menus.queries';
 import {
@@ -191,10 +195,12 @@ function Messages({ conversation }: { conversation: Conversation }) {
   );
   const messages = [...conversation.messages, ...pending];
   const answered = pending.some((message) => message.role === 'assistant');
+  const sentByUser = conversation.messages.filter(({ role }) => role === 'user').length;
+  const full = reply.limitReached || sentByUser >= CONVERSATION_MAX_USER_MESSAGES;
 
   const submit = async (text: string = draft): Promise<void> => {
     const message = text.trim();
-    if (!message || text.length > MESSAGE_MAX_LENGTH || reply.isSending) return;
+    if (!message || text.length > MESSAGE_MAX_LENGTH || reply.isSending || full) return;
     setDraft('');
     if (!(await reply.send(message))) setDraft(text);
   };
@@ -240,13 +246,18 @@ function Messages({ conversation }: { conversation: Conversation }) {
             {reply.isSending && !answered && <ReplyProgressBubble progress={reply.progress} />}
           </ol>
         )}
-        {reply.error && <ErrorAlert error={reply.error} title="The message was not sent" />}
+        {reply.error && !reply.limitReached && (
+          <ErrorAlert error={reply.error} title="The message was not sent" />
+        )}
       </div>
 
       <form
         onSubmit={onSubmit}
         className="flex flex-col gap-3 border-t border-sage-100 bg-white px-5 pt-4 pb-5.5 sm:px-7"
       >
+        {(full || sentByUser >= CONVERSATION_LONG_USER_MESSAGES) && (
+          <LongConversationNotice conversationId={conversation.id} full={full} sent={sentByUser} />
+        )}
         {messages.length === 0 && (
           <ul aria-label="Suggestions" className="flex flex-wrap gap-2">
             {SUGGESTIONS.map((suggestion) => (
@@ -274,6 +285,7 @@ function Messages({ conversation }: { conversation: Conversation }) {
             className="min-w-0 flex-1 resize-none bg-transparent py-1.5 text-[15px] outline-none placeholder:text-sage-500"
             placeholder="Type a message. Enter sends, Shift+Enter adds a line."
             value={draft}
+            disabled={full}
             aria-invalid={tooLong || undefined}
             aria-describedby="message-msg"
             onChange={(event) => setDraft(event.target.value)}
@@ -290,13 +302,72 @@ function Messages({ conversation }: { conversation: Conversation }) {
               <StopIcon />
             </Button>
           ) : (
-            <Button variant="icon" type="submit" aria-label="Send" disabled={!content || tooLong}>
+            <Button
+              variant="icon"
+              type="submit"
+              aria-label="Send"
+              disabled={!content || tooLong || full}
+            >
               <SendIcon size={18} />
             </Button>
           )}
         </div>
       </form>
     </ChatPanel>
+  );
+}
+
+/**
+ * Suggests a new conversation once this one is long, and asks for one once it is full: the backend
+ * takes no more messages then. The new one starts with the menu details and the menu of this one.
+ */
+function LongConversationNotice({
+  conversationId,
+  full,
+  sent,
+}: {
+  conversationId: string;
+  full: boolean;
+  sent: number;
+}) {
+  const navigate = useNavigate();
+  const create = useCreateConversation();
+  const left = Math.max(CONVERSATION_MAX_USER_MESSAGES - sent, 0);
+
+  return (
+    <div
+      role="status"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-[14px] border border-amber-200 bg-amber-50 px-4.5 py-3.5 text-sm text-amber-900"
+    >
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">
+          {full ? 'This conversation is full' : 'This conversation is getting long'}
+        </p>
+        <p>
+          {full
+            ? 'Start a new conversation to keep planning.'
+            : `${left} of ${CONVERSATION_MAX_USER_MESSAGES} messages left. A new conversation works better for your next requests.`}{' '}
+          Your menu details carry over.
+        </p>
+      </div>
+      <Button
+        variant={full ? 'primary' : 'secondary'}
+        loading={create.isPending}
+        onClick={() =>
+          create.mutate(
+            { fromConversationId: conversationId },
+            { onSuccess: (created) => navigate(`/chat/${created.id}`) },
+          )
+        }
+      >
+        Start a new conversation
+      </Button>
+      {create.isError && (
+        <div className="w-full">
+          <ErrorAlert error={create.error} title="Could not start a conversation" />
+        </div>
+      )}
+    </div>
   );
 }
 

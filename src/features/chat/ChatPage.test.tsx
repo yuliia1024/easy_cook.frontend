@@ -13,6 +13,13 @@ import { renderRoutes } from '../../test/render';
 import { api, apiError, http, HttpResponse, server, uiMessageStream } from '../../test/server';
 import { ChatPage } from './ChatPage';
 
+/** `count` messages of the user, each with a reply. */
+const chatOf = (count: number) =>
+  Array.from({ length: count }, (_, index) => [
+    buildMessage({ id: `user-${index}`, content: `Question ${index}` }),
+    buildMessage({ id: `reply-${index}`, role: 'assistant', content: `Answer ${index}` }),
+  ]).flat();
+
 const routes = [
   { path: '/chat', element: <ChatPage /> },
   { path: '/chat/:id', element: <ChatPage /> },
@@ -643,5 +650,92 @@ describe('ChatPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Second' })).toBeInTheDocument();
     expect(screen.getByLabelText('Message')).toHaveValue('');
+  });
+
+  describe('a long conversation', () => {
+    const NEW_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    /** The notice; the spinner is a `status` too. */
+    const findNotice = async (title: string): Promise<HTMLElement> =>
+      (await screen.findByText(title)).closest<HTMLElement>('[role="status"]')!;
+    const withMessages = (count: number) =>
+      server.use(
+        http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+        http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+          HttpResponse.json(buildConversation({ messages: chatOf(count) })),
+        ),
+      );
+
+    it('says nothing before the 45th message of the user', async () => {
+      withMessages(44);
+      renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      expect(await screen.findByText('Answer 43')).toBeInTheDocument();
+      expect(screen.queryByText('This conversation is getting long')).not.toBeInTheDocument();
+    });
+
+    it('suggests a new conversation with the menu details from the 45th message', async () => {
+      withMessages(45);
+      let created: unknown;
+      server.use(
+        http.post(api('/conversations'), async ({ request }) => {
+          created = await request.json();
+          return HttpResponse.json(buildConversation({ id: NEW_ID }));
+        }),
+        http.get(api(`/conversations/${NEW_ID}`), () =>
+          HttpResponse.json(buildConversation({ id: NEW_ID })),
+        ),
+      );
+      const { user, router } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const notice = await findNotice('This conversation is getting long');
+      expect(notice).toHaveTextContent('5 of 50 messages left');
+      expect(notice).toHaveTextContent('Your menu details carry over.');
+      expect(screen.getByLabelText('Message')).toBeEnabled();
+
+      await user.click(within(notice).getByRole('button', { name: 'Start a new conversation' }));
+
+      await waitFor(() => expect(router.state.location.pathname).toBe(`/chat/${NEW_ID}`));
+      expect(created).toEqual({ fromConversationId: CONVERSATION_ID });
+    });
+
+    it('takes no more messages at the limit', async () => {
+      withMessages(50);
+      renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      expect(await findNotice('This conversation is full')).toHaveTextContent(
+        'Start a new conversation to keep planning.',
+      );
+      expect(screen.getByLabelText('Message')).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    });
+
+    it('asks for a new conversation when the backend says this one is full', async () => {
+      withMessages(10);
+      server.use(
+        http.post(api(`/conversations/${CONVERSATION_ID}/messages`), () =>
+          uiMessageStream([
+            { type: 'start' },
+            {
+              type: 'data-error',
+              data: {
+                code: 'conversation_limit_reached',
+                message: 'This conversation is full.',
+                retryable: false,
+              },
+              transient: true,
+            },
+            { type: 'error', errorText: 'This conversation is full.' },
+          ]),
+        ),
+      );
+      const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      await user.type(await screen.findByLabelText('Message'), 'One more{Enter}');
+
+      expect(await findNotice('This conversation is full')).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Message')).toHaveValue('One more');
+      expect(screen.getByLabelText('Message')).toBeDisabled();
+    });
   });
 });

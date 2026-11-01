@@ -52,3 +52,9 @@ export const MENU_TITLE_MAX_LENGTH = 255;
 
 // MENU_SERVINGS_MIN and MENU_SERVINGS_MAX in the backend (`constants/menu.ts`).
 export const MENU_SERVINGS_LIMITS = { min: 0.5, max: 2 } as const;
+
+// CONVERSATION_MAX_USER_MESSAGES in the backend (`constants/chat.ts`): messages of the user a
+// conversation takes; the next one is answered with the `conversation_limit_reached` error.
+export const CONVERSATION_MAX_USER_MESSAGES = 50;
+// Not in the backend: from this many messages of the user the chat suggests a new conversation.
+export const CONVERSATION_LONG_USER_MESSAGES = 45;
