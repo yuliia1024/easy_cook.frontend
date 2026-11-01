@@ -79,6 +79,35 @@ describe('toPending', () => {
 });
 
 describe('useReplyStream', () => {
+  it.each([
+    ['conversation_limit_reached', true],
+    ['assistant_unavailable', false],
+  ])('tells whether the conversation is full from a %s error', async (code, full) => {
+    server.use(
+      http.post(api(`/conversations/${CONVERSATION_ID}/messages`), () =>
+        uiMessageStream([
+          { type: 'start' },
+          {
+            type: 'data-error',
+            data: { code, message: 'No reply.', retryable: false },
+            transient: true,
+          },
+          { type: 'error', errorText: 'No reply.' },
+        ]),
+      ),
+    );
+    const { wrapper } = createQueryWrapper();
+    const { result } = renderHook(() => useReplyStream(CONVERSATION_ID), { wrapper });
+
+    let sent = true;
+    await act(async () => {
+      sent = await result.current.send('One more');
+    });
+
+    expect(sent).toBe(false);
+    expect(result.current.limitReached).toBe(full);
+  });
+
   it('refreshes the conversation and the menus once the reply ends', async () => {
     server.use(
       http.post(api(`/conversations/${CONVERSATION_ID}/messages`), () =>

@@ -350,6 +350,16 @@ export interface StreamedStatus {
   message: string;
 }
 
+/** The transient `data-error` part of a failed reply; an `error` chunk with `message` follows it. */
+export interface StreamedError {
+  code: string;
+  message: string;
+  retryable: boolean;
+}
+
+/** The `code` of a `data-error` part when the conversation takes no more messages. */
+export const CONVERSATION_LIMIT_REACHED = 'conversation_limit_reached';
+
 /** The transient `data-menu-pending` part: the shape of the menu being planned. */
 export interface PendingMenu {
   days: number;
@@ -390,4 +400,6 @@ export interface Conversation {
 export interface ConversationInput {
   title?: string;
   menuId?: string | null;
+  /** Carries the menu details and, unless `menuId` is given, the menu of that conversation. */
+  fromConversationId?: string | null;
 }
