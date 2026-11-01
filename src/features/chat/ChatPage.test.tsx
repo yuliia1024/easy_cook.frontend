@@ -3,7 +3,10 @@ import {
   buildConversation,
   buildConversationSummary,
   buildMenu,
+  buildMenuMeal,
+  buildMenuVersion,
   buildMessage,
+  buildRecipeSnapshot,
   buildSuggestedMenu,
   CONVERSATION_ID,
   MENU_ID,
@@ -19,6 +22,18 @@ const chatOf = (count: number) =>
     buildMessage({ id: `user-${index}`, content: `Question ${index}` }),
     buildMessage({ id: `reply-${index}`, role: 'assistant', content: `Answer ${index}` }),
   ]).flat();
+
+/** A saved version of one meal, the recipe `name`. */
+const savedVersion = (id: string, name: string) =>
+  buildMenuVersion({
+    id,
+    days: [
+      {
+        ...buildMenuVersion().days[0],
+        meals: [buildMenuMeal({ recipe: buildRecipeSnapshot({ name }) })],
+      },
+    ],
+  });
 
 const routes = [
   { path: '/chat', element: <ChatPage /> },
@@ -58,7 +73,9 @@ describe('ChatPage', () => {
     let sent: unknown;
     let answered = false;
     server.use(
-      http.get(api('/menus/m'), () => HttpResponse.json(buildMenu({ id: 'm' }))),
+      http.get(api('/menus/m'), () =>
+        HttpResponse.json(buildMenu({ id: 'm', versions: [savedVersion('v', 'Oatmeal')] })),
+      ),
       http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
       http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
         HttpResponse.json(
@@ -271,10 +288,13 @@ describe('ChatPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('shows the suggested menu with a link to its draft while it streams and after it is saved', async () => {
+  it('shows the suggested menu with a link to its draft, once saved from its version', async () => {
     const menu = buildSuggestedMenu();
     let answered = false;
     server.use(
+      http.get(api('/menus/m'), () =>
+        HttpResponse.json(buildMenu({ id: 'm', versions: [savedVersion('v', 'Saved oatmeal')] })),
+      ),
       http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
       http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
         HttpResponse.json(
@@ -288,7 +308,6 @@ describe('ChatPage', () => {
                     content: 'Here is your day.',
                     menuId: 'm',
                     menuVersionId: 'v',
-                    suggestedMenu: menu,
                   }),
                 ]
               : [],
@@ -316,11 +335,59 @@ describe('ChatPage', () => {
     expect(
       await within(messages).findByRole('region', { name: 'Suggested menu, day 1' }),
     ).toBeInTheDocument();
-    expect(within(messages).getByRole('link', { name: 'Oatmeal' })).toBeInTheDocument();
+    // Once saved, the reply shows the version it was saved as.
+    expect(
+      await within(messages).findByRole('link', { name: 'Saved oatmeal' }),
+    ).toBeInTheDocument();
     expect(within(messages).getByRole('link', { name: 'Open menu' })).toHaveAttribute(
       'href',
       '/menus/m',
     );
+  });
+
+  it('shows the menu of a saved reply from the version it was saved as', async () => {
+    server.use(
+      http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+        HttpResponse.json(
+          buildConversation({
+            messages: [
+              buildMessage({
+                id: 'reply',
+                role: 'assistant',
+                content: 'Here is your day.',
+                menuId: MENU_ID,
+                menuVersionId: VERSION_ID,
+              }),
+              buildMessage({
+                id: 'gone',
+                role: 'assistant',
+                content: 'An older day.',
+                menuId: MENU_ID,
+                menuVersionId: 'missing-version',
+              }),
+            ],
+          }),
+        ),
+      ),
+      http.get(api(`/menus/${MENU_ID}`), () =>
+        HttpResponse.json(
+          buildMenu({
+            versions: [savedVersion('other', 'Pancakes'), savedVersion(VERSION_ID, 'Oatmeal')],
+          }),
+        ),
+      ),
+    );
+    renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+    const reply = (await screen.findByText('Here is your day.')).closest('li') as HTMLElement;
+    expect(
+      await within(reply).findByRole('region', { name: 'Suggested menu, day 1' }),
+    ).toBeInTheDocument();
+    expect(within(reply).getByRole('link', { name: 'Oatmeal' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Pancakes' })).toBeNull();
+    const gone = screen.getByText('An older day.').closest('li') as HTMLElement;
+    expect(within(gone).queryByRole('region')).toBeNull();
   });
 
   it('shows the step and the placeholders of the menu while it is planned, then the menu', async () => {
@@ -328,7 +395,9 @@ describe('ChatPage', () => {
     let answered = false;
     let release = (): void => undefined;
     server.use(
-      http.get(api('/menus/m'), () => HttpResponse.json(buildMenu({ id: 'm' }))),
+      http.get(api('/menus/m'), () =>
+        HttpResponse.json(buildMenu({ id: 'm', versions: [savedVersion('v', 'Oatmeal')] })),
+      ),
       http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
       http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
         HttpResponse.json(
@@ -342,7 +411,6 @@ describe('ChatPage', () => {
                     content: 'Here is your day.',
                     menuId: 'm',
                     menuVersionId: 'v',
-                    suggestedMenu: menu,
                   }),
                 ]
               : [],
@@ -425,7 +493,6 @@ describe('ChatPage', () => {
         content: `Reply ${id}`,
         menuId: MENU_ID,
         menuVersionId,
-        suggestedMenu: buildSuggestedMenu(),
       });
     const showReplies = (confirmed: () => string | null) =>
       server.use(

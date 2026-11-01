@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate, useParams } from 'react-router';
-import type { Conversation, ConversationSummary, Message } from '../../api/types';
+import type { Conversation, ConversationSummary, Message, SuggestedMenu } from '../../api/types';
 import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { EmptyState } from '../../components/EmptyState';
@@ -21,6 +21,7 @@ import {
   useDeleteConversation,
 } from './chat.queries';
 import { MenuSkeleton } from './MenuSkeleton';
+import { toSuggestedMenu } from './suggested-menu';
 import { SuggestedMenuDays } from './SuggestedMenuDays';
 import { useReplyStream, type PendingMessage, type ReplyProgress } from './use-reply-stream';
 
@@ -389,6 +390,19 @@ function ReplyProgressBubble({ progress }: { progress: ReplyProgress }) {
   );
 }
 
+/**
+ * The menu a reply suggests: a streamed reply has it in its `data-menu` part, a saved one is the
+ * version `menuVersionId` of its menu. Null while that menu loads or when the version is gone.
+ */
+function useReplyMenu(message: Message | PendingMessage): SuggestedMenu | null {
+  const streamed = 'suggestedMenu' in message ? message.suggestedMenu : null;
+  const saved = !streamed && message.menuVersionId ? (message.menuId ?? undefined) : undefined;
+  const menu = useMenu(saved);
+  if (streamed) return streamed;
+  const version = menu.data?.versions.find(({ id }) => id === message.menuVersionId);
+  return version ? toSuggestedMenu(version) : null;
+}
+
 /** A streamed reply types its text out; its menu shows up once the text is all there. */
 function MessageBubble({
   message,
@@ -398,6 +412,7 @@ function MessageBubble({
   streamed: boolean;
 }) {
   const typed = useTypewriter(message.content, streamed && message.role === 'assistant');
+  const menu = useReplyMenu(message);
 
   if (message.role === 'user') {
     return (
@@ -409,18 +424,18 @@ function MessageBubble({
   }
   return (
     <li
-      className={`flex flex-col gap-4 self-start rounded-[20px_20px_20px_6px] border border-sage-200 bg-white text-[15px]/normal ${message.suggestedMenu ? 'w-full p-5' : 'max-w-[85%] px-4.5 py-3 sm:max-w-[70%]'}`}
+      className={`flex flex-col gap-4 self-start rounded-[20px_20px_20px_6px] border border-sage-200 bg-white text-[15px]/normal ${menu ? 'w-full p-5' : 'max-w-[85%] px-4.5 py-3 sm:max-w-[70%]'}`}
     >
       <span className="sr-only">Assistant: </span>
       <p className="whitespace-pre-line">{typed.text}</p>
-      {message.suggestedMenu &&
+      {menu &&
         (typed.done ? (
-          <SuggestedMenuDays menu={message.suggestedMenu} />
+          <SuggestedMenuDays menu={menu} />
         ) : (
           <MenuSkeleton
             menu={{
-              days: message.suggestedMenu.days.length,
-              mealTypes: message.suggestedMenu.days[0]?.meals.map(({ mealType }) => mealType) ?? [],
+              days: menu.days.length,
+              mealTypes: menu.days[0]?.meals.map(({ mealType }) => mealType) ?? [],
             }}
           />
         ))}
