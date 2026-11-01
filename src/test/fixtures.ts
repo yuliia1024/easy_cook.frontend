@@ -247,7 +247,6 @@ export function buildMessage(overrides: Partial<Message> = {}): Message {
     content: 'Plan a menu for 3 days',
     menuVersionId: null,
     menuId: null,
-    suggestedMenu: null,
     createdAt: NOW,
     ...overrides,
   };

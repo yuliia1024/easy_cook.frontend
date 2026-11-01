@@ -326,7 +326,7 @@ export interface SuggestedDay {
   complete: boolean;
 }
 
-/** A menu the assistant suggested in a reply, saved as a draft menu version. */
+/** A menu the assistant suggested in a reply: the `data-menu` part, or the version it was saved as. */
 export interface SuggestedMenu {
   days: SuggestedDay[];
   dailyAverage: Macros;
@@ -370,11 +370,9 @@ export interface Message {
   id: string;
   role: MessageRole;
   content: string;
-  /** The menu version the assistant created with this reply, and its menu. */
+  /** The menu version the assistant suggested with this reply, and its menu. */
   menuVersionId: string | null;
   menuId: string | null;
-  /** The menu the assistant suggested with this reply. */
-  suggestedMenu: SuggestedMenu | null;
   createdAt: string;
 }
 
