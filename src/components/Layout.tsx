@@ -11,8 +11,10 @@ const LINKS = [
 ];
 
 export function Layout() {
-  // The chat is a two-column workspace and gets a wider canvas than the other pages.
-  const wide = useMatch('/chat/*');
+  // The chat and the menus are two-column workspaces and get a wider canvas than the other pages.
+  const chat = useMatch('/chat/*');
+  const menus = useMatch('/menus/*');
+  const wide = chat ?? menus;
 
   return (
     <div className="flex min-h-screen flex-col">

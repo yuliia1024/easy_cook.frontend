@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { menusApi } from '../../api/menus';
-import type { Menu, MenuStatus } from '../../api/types';
+import type { Menu, MenuStatus, MenuSummary } from '../../api/types';
 
 export const menuKeys = {
   all: ['menus'] as const,
@@ -11,6 +11,18 @@ export const menuKeys = {
 
 export function useMenus(status: MenuStatus) {
   return useQuery({ queryKey: menuKeys.listOf(status), queryFn: () => menusApi.list(status) });
+}
+
+const byConfirmedAtDesc = (menus: MenuSummary[]): MenuSummary[] =>
+  [...menus].sort((a, b) => (b.confirmedAt ?? '').localeCompare(a.confirmedAt ?? ''));
+
+/** The confirmed menus, last confirmed first: the first one is the active menu. */
+export function useConfirmedMenus() {
+  return useQuery({
+    queryKey: menuKeys.listOf('confirmed'),
+    queryFn: () => menusApi.list('confirmed'),
+    select: byConfirmedAtDesc,
+  });
 }
 
 export function useMenu(id: string | undefined) {

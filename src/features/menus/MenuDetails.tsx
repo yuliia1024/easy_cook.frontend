@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import type { Macro, Menu, MenuDay, MenuIssue, MenuMeal, MenuVersion } from '../../api/types';
 import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -21,19 +21,21 @@ const MEAL_MACROS: Macro[] = ['kcal', 'proteinG', 'fatG', 'carbsG'];
 
 const dayDate = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 
-export function MenuDetailsPage() {
-  const { id } = useParams();
+/** One saved menu with its versions; the menus page shows it next to the menu list. */
+export function MenuDetails({ id }: { id: string }) {
   const menu = useMenu(id);
 
   if (menu.isPending) return <Spinner />;
   if (menu.isError) return <ErrorAlert error={menu.error} onRetry={() => void menu.refetch()} />;
-  return <MenuDetails menu={menu.data} />;
+  return <MenuView menu={menu.data} />;
 }
 
-function MenuDetails({ menu }: { menu: Menu }) {
+function MenuView({ menu }: { menu: Menu }) {
   const navigate = useNavigate();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const version = menu.versions.find((v) => v.id === selectedId) ?? menu.versions[0];
+  // `?version=<number>` picks the shown version (the side list links to it); the newest by default.
+  const [params, setParams] = useSearchParams();
+  const requested = Number(params.get('version'));
+  const version = menu.versions.find((v) => v.versionNumber === requested) ?? menu.versions[0];
   const rename = useRenameMenu(menu.id);
   const remove = useDeleteMenu();
   const confirm = useConfirmMenuVersion(menu.id);
@@ -48,9 +50,6 @@ function MenuDetails({ menu }: { menu: Menu }) {
 
   return (
     <>
-      <Link to="/menus" className="text-sm text-sage-600 hover:underline">
-        ← All menus
-      </Link>
       <PageHeader
         title={menu.title}
         actions={
@@ -104,7 +103,11 @@ function MenuDetails({ menu }: { menu: Menu }) {
               <select
                 className="input"
                 value={version.id}
-                onChange={(event) => setSelectedId(event.target.value)}
+                onChange={(event) => {
+                  const picked = menu.versions.find((v) => v.id === event.target.value);
+                  if (picked)
+                    setParams({ version: String(picked.versionNumber) }, { replace: true });
+                }}
               >
                 {menu.versions.map((v) => (
                   <option key={v.id} value={v.id}>

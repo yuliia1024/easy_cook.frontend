@@ -10,15 +10,15 @@ import {
 } from '../../test/fixtures';
 import { renderRoutes } from '../../test/render';
 import { api, apiError, http, HttpResponse, server } from '../../test/server';
-import { MenuDetailsPage } from './MenuDetailsPage';
+import { MenuDetails } from './MenuDetails';
 
 const routes = [
-  { path: '/menus/:id', element: <MenuDetailsPage /> },
+  { path: '/menus/:id', element: <MenuDetails id={MENU_ID} /> },
   { path: '/menus', element: <p>menus list</p> },
 ];
 const render = () => renderRoutes(routes, `/menus/${MENU_ID}`);
 
-describe('MenuDetailsPage', () => {
+describe('MenuDetails', () => {
   it('shows the latest version with days, meals, servings, totals, goal and issues', async () => {
     const version = buildMenuVersion({
       issues: [

@@ -316,6 +316,99 @@ describe('ChatPage', () => {
     );
   });
 
+  it('shows the step and the placeholders of the menu while it is planned, then the menu', async () => {
+    const menu = buildSuggestedMenu();
+    let answered = false;
+    let release = (): void => undefined;
+    server.use(
+      http.get(api('/menus/m'), () => HttpResponse.json(buildMenu({ id: 'm' }))),
+      http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+        HttpResponse.json(
+          buildConversation({
+            messages: answered
+              ? [
+                  buildMessage({ content: 'Plan my day' }),
+                  buildMessage({
+                    id: 'reply',
+                    role: 'assistant',
+                    content: 'Here is your day.',
+                    menuId: 'm',
+                    menuVersionId: 'v',
+                    suggestedMenu: menu,
+                  }),
+                ]
+              : [],
+          }),
+        ),
+      ),
+      http.post(api(`/conversations/${CONVERSATION_ID}/messages`), () => {
+        answered = true;
+        const encoder = new TextEncoder();
+        const write = (controller: ReadableStreamDefaultController, chunks: object[]): void =>
+          chunks.forEach((chunk) =>
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)),
+          );
+        // Sends the progress, then the reply once `release` is called.
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            write(controller, [
+              { type: 'start' },
+              {
+                type: 'data-status',
+                data: { step: 'thinking', message: 'Thinking' },
+                transient: true,
+              },
+              {
+                type: 'data-menu-pending',
+                data: { days: 2, mealTypes: ['breakfast', 'lunch', 'snack', 'dinner'] },
+                transient: true,
+              },
+              {
+                type: 'data-status',
+                data: { step: 'checking_constraints', message: 'Checking the constraints' },
+                transient: true,
+              },
+            ]);
+            release = () => {
+              write(controller, [
+                { type: 'text-start', id: 'text' },
+                { type: 'text-delta', id: 'text', delta: 'Here is your day.' },
+                { type: 'text-end', id: 'text' },
+                { type: 'data-menu', data: { menuId: 'm', versionId: 'v', composition: menu } },
+                { type: 'finish' },
+              ]);
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+              controller.close();
+            };
+          },
+        });
+        return new HttpResponse(body, {
+          status: 201,
+          headers: { 'Content-Type': 'text/event-stream', 'x-vercel-ai-ui-message-stream': 'v1' },
+        });
+      }),
+    );
+    const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+    await user.type(await screen.findByLabelText('Message'), 'Plan my day{Enter}');
+
+    const messages = await screen.findByRole('list', { name: 'Messages' });
+    expect(await within(messages).findByText('Checking the constraints…')).toBeInTheDocument();
+    const skeleton = within(messages).getByRole('group', { name: 'Menu being planned' });
+    expect(within(skeleton).getByRole('list', { name: 'Days' })).toBeInTheDocument();
+    expect(within(skeleton).getByText('Breakfast')).toBeInTheDocument();
+
+    release();
+
+    expect(
+      await screen.findByRole('region', { name: 'Suggested menu, day 1' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Here is your day.')).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Menu being planned' })).toBeNull();
+    expect(screen.queryByText('Checking the constraints…')).toBeNull();
+  });
+
   describe('confirming the menu of a reply', () => {
     const OTHER_VERSION_ID = '99999999-9999-4999-8999-999999999999';
     const reply = (id: string, menuVersionId: string) =>

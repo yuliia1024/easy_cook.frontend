@@ -1,10 +1,16 @@
 import { useChat } from '@ai-sdk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { UIMessage } from 'ai';
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { createReplyTransport } from '../../api/conversations';
 import { ApiError } from '../../api/http';
-import type { MessageRole, StreamedMenu, SuggestedMenu } from '../../api/types';
+import type {
+  MessageRole,
+  PendingMenu,
+  StreamedMenu,
+  StreamedStatus,
+  SuggestedMenu,
+} from '../../api/types';
 import { menuKeys } from '../menus/menus.queries';
 import { chatKeys } from './chat.queries';
 
@@ -35,27 +41,51 @@ export function toPending(message: UIMessage): PendingMessage {
   };
 }
 
+/** What the transient parts of the reply tell while it streams; nothing of it is saved. */
+export interface ReplyProgress {
+  /** The text of the latest `data-status` part. */
+  status: string | null;
+  /** From the `data-menu-pending` part, until the reply ends. */
+  menu: PendingMenu | null;
+}
+
+const NO_PROGRESS: ReplyProgress = { status: null, menu: null };
+
 /**
  * Sends a message and streams the reply (AI SDK `useChat`). While it streams, `pending` holds the
- * message and the reply so far; once it ends the conversation is refetched with both saved.
+ * message and the reply so far and `progress` the step under way and the menu being planned; once
+ * it ends the conversation is refetched with both messages saved.
  * `stop` cancels the reply: the backend keeps the message but drops the unfinished reply.
  */
 export function useReplyStream(id: string) {
   const queryClient = useQueryClient();
   const transport = useMemo(() => createReplyTransport(id), [id]);
   const failed = useRef(false);
+  const [progress, setProgress] = useState<ReplyProgress>(NO_PROGRESS);
   const chat = useChat({
     id,
     transport,
     onError: () => {
       failed.current = true;
     },
+    // Transient parts never reach `messages`; they only come through here.
+    onData: (part) => {
+      if (part.type === 'data-status') {
+        const { message } = part.data as StreamedStatus;
+        setProgress((current) => ({ ...current, status: message }));
+      } else if (part.type === 'data-menu-pending') {
+        const menu = part.data as PendingMenu;
+        setProgress((current) => ({ ...current, menu }));
+      }
+    },
   });
 
   /** Resolves to false when the message or the reply failed. */
   const send = async (content: string): Promise<boolean> => {
     failed.current = false;
+    setProgress(NO_PROGRESS);
     await chat.sendMessage({ text: content }, { body: { content } });
+    setProgress(NO_PROGRESS);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: chatKeys.detail(id) }),
       queryClient.invalidateQueries({ queryKey: chatKeys.list() }),
@@ -77,9 +107,8 @@ export function useReplyStream(id: string) {
     send,
     stop: () => void chat.stop(),
     isSending: chat.status === 'submitted' || chat.status === 'streaming',
-    /** True until the first chunk of the reply arrives. */
-    isWaiting: chat.status === 'submitted',
     pending: chat.messages.map(toPending),
+    progress,
     error,
   };
 }

@@ -340,6 +340,22 @@ export interface StreamedMenu {
   composition: SuggestedMenu;
 }
 
+/** The step of a reply the backend is on, from a `data-status` part. */
+export type ReplyStep =
+  'thinking' | 'searching_breakfasts' | 'picking_lunches' | 'checking_constraints';
+
+/** The transient `data-status` part of a streamed reply. */
+export interface StreamedStatus {
+  step: ReplyStep;
+  message: string;
+}
+
+/** The transient `data-menu-pending` part: the shape of the menu being planned. */
+export interface PendingMenu {
+  days: number;
+  mealTypes: MealType[];
+}
+
 export interface Message {
   id: string;
   role: MessageRole;
