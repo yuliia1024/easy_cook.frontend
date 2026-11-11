@@ -59,6 +59,16 @@ describe('recipeFormSchema', () => {
     expect(messages({ ...valid, ingredients, servings: '3' })).toEqual([]);
   });
 
+  it('compares the calories of a serving rounded to one decimal, as the backend', () => {
+    const ingredients = (kcalPer100g: number) => [
+      { ...line, food: buildFood({ kcalPer100g }), quantityG: '100' },
+    ];
+    expect(messages({ ...valid, ingredients: ingredients(2500.04), servings: '1' })).toEqual([]);
+    expect(messages({ ...valid, ingredients: ingredients(2500.05), servings: '1' })).toEqual([
+      'One serving would have 2500.1 kcal; at most 2500 kcal',
+    ]);
+  });
+
   it('skips the serving limits while a field is invalid', () => {
     const ingredients = [{ ...line, quantityG: '9000' }];
     expect(messages({ ...valid, ingredients, servings: '' })).toEqual([

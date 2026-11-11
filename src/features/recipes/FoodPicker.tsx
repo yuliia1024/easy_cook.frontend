@@ -25,6 +25,10 @@ export function FoodPicker({ onPick }: { onPick: (food: FoodItem) => void }) {
         placeholder="Start typing a food name (min. 2 characters)"
         value={search}
         onChange={(event) => setSearch(event.target.value)}
+        // The picker sits inside the recipe form: Enter must not submit (and save) the recipe.
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.preventDefault();
+        }}
       />
       {debounced.length >= 2 && (
         <div className="mt-2">

@@ -43,7 +43,10 @@ export function ProfileForm({ profile }: { profile: Profile | null }) {
     reset,
   } = useForm<ProfileFormValues, unknown, ProfileFormOutput>({
     resolver: zodResolver(profileFormSchema),
-    defaultValues: toProfileFormValues(profile),
+    // Follows newer server data (e.g. a refetch after mounting from the cache) without
+    // overwriting what the user has changed.
+    values: toProfileFormValues(profile),
+    resetOptions: { keepDirtyValues: true },
   });
 
   const [heightCm, weightKg] = useWatch({ control, name: ['heightCm', 'weightKg'] }).map(

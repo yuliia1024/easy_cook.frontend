@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { menusApi } from '../../api/menus';
 import type { Menu, MenuStatus, MenuSummary } from '../../api/types';
+import { chatKeys } from '../chat/chat.queries';
 
 export const menuKeys = {
   all: ['menus'] as const,
@@ -10,7 +11,10 @@ export const menuKeys = {
 };
 
 export function useMenus(status: MenuStatus) {
-  return useQuery({ queryKey: menuKeys.listOf(status), queryFn: () => menusApi.list(status) });
+  return useQuery({
+    queryKey: menuKeys.listOf(status),
+    queryFn: ({ signal }) => menusApi.list(status, { signal }),
+  });
 }
 
 const byConfirmedAtDesc = (menus: MenuSummary[]): MenuSummary[] =>
@@ -20,7 +24,7 @@ const byConfirmedAtDesc = (menus: MenuSummary[]): MenuSummary[] =>
 export function useConfirmedMenus() {
   return useQuery({
     queryKey: menuKeys.listOf('confirmed'),
-    queryFn: () => menusApi.list('confirmed'),
+    queryFn: ({ signal }) => menusApi.list('confirmed', { signal }),
     select: byConfirmedAtDesc,
   });
 }
@@ -28,7 +32,7 @@ export function useConfirmedMenus() {
 export function useMenu(id: string | undefined) {
   return useQuery({
     queryKey: menuKeys.detail(id ?? ''),
-    queryFn: () => menusApi.get(id!),
+    queryFn: ({ signal }) => menusApi.get(id!, { signal }),
     enabled: Boolean(id),
   });
 }
@@ -51,13 +55,26 @@ export const useRenameMenu = (id: string) =>
 export const useConfirmMenuVersion = (id: string) =>
   useMenuMutation((versionId: string) => menusApi.confirm(id, versionId));
 
-export function useDeleteMenu() {
+/**
+ * `onDeleted` runs before the menu leaves the cache: a page showing it navigates away there, or it
+ * would refetch the menu into a 404. The menu leaves the lists at once, so it is not opened again
+ * as the active menu meanwhile.
+ */
+export function useDeleteMenu({ onDeleted }: { onDeleted?: (id: string) => void } = {}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => menusApi.remove(id),
     onSuccess: (_, id) => {
-      queryClient.removeQueries({ queryKey: menuKeys.detail(id) });
-      return queryClient.invalidateQueries({ queryKey: menuKeys.list() });
+      queryClient.setQueriesData<MenuSummary[]>({ queryKey: menuKeys.list() }, (menus) =>
+        menus?.filter((menu) => menu.id !== id),
+      );
+      onDeleted?.(id);
+      queryClient.removeQueries({ queryKey: menuKeys.detail(id), exact: true });
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: menuKeys.list() }),
+        // The backend unlinks the menu from its conversations and replies.
+        queryClient.invalidateQueries({ queryKey: chatKeys.all }),
+      ]);
     },
   });
 }

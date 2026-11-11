@@ -4,6 +4,8 @@ import { MACRO_LABELS, MACRO_UNITS, MACROS } from '../lib/labels';
 
 type Values = Record<Macro, number | null>;
 
+const MISSING_NOTE = 'Some ingredients have unknown values';
+
 /** Tile colors with `highlight`: the same tones as the macro chips. */
 const MACRO_TONES: Record<Macro, string> = {
   kcal: 'bg-sage-900 text-white',
@@ -54,12 +56,16 @@ export function MacrosSummary({
                 {MACRO_UNITS[macro]}
               </span>
               {missing.includes(macro) && (
-                <span
-                  className={highlight ? undefined : 'text-amber-600'}
-                  title="Some ingredients have unknown values"
-                >
-                  *
-                </span>
+                <>
+                  <span
+                    aria-hidden="true"
+                    className={highlight ? undefined : 'text-amber-600'}
+                    title={MISSING_NOTE}
+                  >
+                    *
+                  </span>
+                  <span className="sr-only">({MISSING_NOTE.toLowerCase()})</span>
+                </>
               )}
             </dd>
           </div>

@@ -1,5 +1,6 @@
 import type {
   ActivityLevel,
+  Allergen,
   CalculationMode,
   DietTag,
   FoodSource,
@@ -9,6 +10,7 @@ import type {
   MealType,
   MenuGeneratedBy,
   MenuStatus,
+  PreferenceChangeAction,
   PreferenceType,
   Sex,
 } from '../api/types';
@@ -48,6 +50,18 @@ export const DIET_TAG_LABELS: Record<DietTag, string> = {
   dairy_free: 'dairy-free',
   high_protein: 'high protein',
   low_carb: 'low carb',
+};
+
+export const ALLERGEN_LABELS: Record<Allergen, string> = {
+  gluten: 'gluten',
+  milk: 'milk',
+  egg: 'egg',
+  fish: 'fish',
+  shellfish: 'shellfish',
+  peanut: 'peanut',
+  tree_nut: 'tree nuts',
+  soy: 'soy',
+  sesame: 'sesame',
 };
 
 export const SEX_LABELS: Record<Sex, string> = { male: 'male', female: 'female' };
@@ -90,6 +104,12 @@ export const PREFERENCE_TYPE_LABELS: Record<PreferenceType, string> = {
   allergy: 'Allergy',
   excluded_ingredient: 'Excluded ingredient',
   disliked_food: 'Disliked food',
+};
+
+/** How a proposed change of the preferences reads: "Add allergy: peanut". */
+export const PREFERENCE_CHANGE_ACTION_LABELS: Record<PreferenceChangeAction, string> = {
+  add: 'Add',
+  remove: 'Remove',
 };
 
 export const MENU_STATUS_LABELS: Record<MenuStatus, string> = {

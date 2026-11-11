@@ -46,6 +46,7 @@ export function buildRecipe(overrides: Partial<Recipe> = {}): Recipe {
     instructions: 'Boil the buckwheat.',
     mealType: 'lunch',
     dietType: ['high_protein'],
+    allergens: [],
     servings: 2,
     prepTimeMinutes: 30,
     source: 'manual',
@@ -146,6 +147,7 @@ export function buildRecipeSnapshot(overrides: Partial<RecipeSnapshot> = {}): Re
     name: 'Buckwheat with chicken',
     mealType: 'lunch',
     dietType: ['high_protein'],
+    allergens: [],
     servings: 2,
     prepTimeMinutes: 30,
     perServing: { kcal: 257.3, proteinG: 10, fatG: 2.6, carbsG: 53.6 },
@@ -247,6 +249,7 @@ export function buildMessage(overrides: Partial<Message> = {}): Message {
     content: 'Plan a menu for 3 days',
     menuVersionId: null,
     menuId: null,
+    preferenceChange: null,
     createdAt: NOW,
     ...overrides,
   };

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { handleDialogKeyDown, openDialog } from './dialog-stack';
 import { CloseIcon } from './icons';
 
 interface Props {
@@ -9,11 +10,9 @@ interface Props {
   actions?: ReactNode;
 }
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea';
-
 /**
  * A modal window over the page. Focus starts on Close and stays inside; Escape or a click
- * outside closes it; the page behind does not scroll.
+ * outside closes it; the page behind does not scroll. Over another dialog only the top one reacts.
  */
 export function Modal({ title, children, onClose, actions }: Props) {
   const id = useId();
@@ -32,19 +31,13 @@ export function Modal({ title, children, onClose, actions }: Props) {
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     closeRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onCloseRef.current();
-      if (event.key !== 'Tab' || !dialogRef.current) return;
-      const items = [...dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
-      const edge = event.shiftKey ? items[0] : items[items.length - 1];
-      if (document.activeElement === edge || !dialogRef.current.contains(document.activeElement)) {
-        event.preventDefault();
-        (event.shiftKey ? items[items.length - 1] : items[0])?.focus();
-      }
-    };
+    const dialog = openDialog();
+    const onKeyDown = (event: KeyboardEvent): void =>
+      handleDialogKeyDown(event, dialogRef.current, dialog.isTopmost(), () => onCloseRef.current());
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      dialog.close();
       document.body.style.overflow = overflow;
       if (previous?.isConnected) previous.focus();
     };

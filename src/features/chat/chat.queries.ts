@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { conversationsApi } from '../../api/conversations';
-import type { ConversationInput } from '../../api/types';
+import type { ConversationInput, PreferenceChange } from '../../api/types';
+import { preferenceKeys } from '../preferences/preferences.queries';
 
 export const chatKeys = {
   all: ['conversations'] as const,
@@ -9,13 +10,16 @@ export const chatKeys = {
 };
 
 export function useConversations() {
-  return useQuery({ queryKey: chatKeys.list(), queryFn: conversationsApi.list });
+  return useQuery({
+    queryKey: chatKeys.list(),
+    queryFn: ({ signal }) => conversationsApi.list({ signal }),
+  });
 }
 
 export function useConversation(id: string | undefined) {
   return useQuery({
     queryKey: chatKeys.detail(id ?? ''),
-    queryFn: () => conversationsApi.get(id!),
+    queryFn: ({ signal }) => conversationsApi.get(id!, { signal }),
     enabled: Boolean(id),
   });
 }
@@ -39,5 +43,18 @@ export function useDeleteConversation() {
       queryClient.removeQueries({ queryKey: chatKeys.detail(id) });
       return queryClient.invalidateQueries({ queryKey: chatKeys.list() });
     },
+  });
+}
+
+/**
+ * Confirms the preference change the latest reply of the conversation proposed. Only the
+ * preferences change: the backend leaves the messages as they are, and menus keep the issues they
+ * were saved with.
+ */
+export function useConfirmPreferenceChange(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (change: PreferenceChange) => conversationsApi.confirmPreferenceChange(id, change),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: preferenceKeys.all }),
   });
 }

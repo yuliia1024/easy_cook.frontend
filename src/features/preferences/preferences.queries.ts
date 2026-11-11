@@ -9,9 +9,9 @@ export const preferenceKeys = { all: ['preferences'] as const };
 export function usePreferences() {
   return useQuery({
     queryKey: preferenceKeys.all,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       try {
-        return await preferencesApi.list();
+        return await preferencesApi.list({ signal });
       } catch (error) {
         if (error instanceof ApiError && error.isNotFound) return null;
         throw error;

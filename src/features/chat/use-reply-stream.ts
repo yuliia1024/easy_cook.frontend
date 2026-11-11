@@ -8,12 +8,16 @@ import {
   CONVERSATION_LIMIT_REACHED,
   type MessageRole,
   type PendingMenu,
+  type PreferenceChange,
   type StreamedError,
   type StreamedMenu,
+  type StreamedPreferenceChange,
+  type StreamedPreferencesUpdated,
   type StreamedStatus,
   type SuggestedMenu,
 } from '../../api/types';
 import { menuKeys } from '../menus/menus.queries';
+import { preferenceKeys } from '../preferences/preferences.queries';
 import { chatKeys } from './chat.queries';
 
 export interface PendingMessage {
@@ -26,13 +30,27 @@ export interface PendingMessage {
   menuVersionId: string | null;
   /** From the `data-menu` part. */
   suggestedMenu: SuggestedMenu | null;
+  /** From the `data-preference-change` part: waits for the user's yes once the reply is saved. */
+  preferenceChange: PreferenceChange | null;
+  /** From the `data-preferences-updated` part: the change this reply applied. */
+  preferencesUpdated: PreferenceChange | null;
 }
+
+/** The data of the first `type` part of a streamed message. */
+function dataOf<T>(message: UIMessage, type: `data-${string}`): T | null {
+  const part = message.parts.find((p) => p.type === type);
+  return part && 'data' in part ? (part.data as T) : null;
+}
+
+/** Between two text parts of a reply, as the backend saves it (`TEXT_PART_SEPARATOR`). */
+export const TEXT_PART_SEPARATOR = '\n\n';
 
 /** The text of a streamed message and the menu it suggests; other data parts are left out. */
 export function toPending(message: UIMessage): PendingMessage {
-  const content = message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('');
-  const part = message.parts.find((p) => p.type === 'data-menu');
-  const menu = part && 'data' in part ? (part.data as StreamedMenu) : null;
+  const content = message.parts
+    .flatMap((part) => (part.type === 'text' ? [part.text] : []))
+    .join(TEXT_PART_SEPARATOR);
+  const menu = dataOf<StreamedMenu>(message, 'data-menu');
   return {
     id: message.id,
     role: message.role === 'user' ? 'user' : 'assistant',
@@ -40,6 +58,10 @@ export function toPending(message: UIMessage): PendingMessage {
     menuId: menu?.menuId ?? null,
     menuVersionId: menu?.versionId ?? null,
     suggestedMenu: menu?.composition ?? null,
+    preferenceChange:
+      dataOf<StreamedPreferenceChange>(message, 'data-preference-change')?.change ?? null,
+    preferencesUpdated:
+      dataOf<StreamedPreferencesUpdated>(message, 'data-preferences-updated')?.change ?? null,
   };
 }
 
@@ -56,16 +78,25 @@ const NO_PROGRESS: ReplyProgress = { status: null, menu: null };
 /**
  * Sends a message and streams the reply (AI SDK `useChat`). While it streams, `pending` holds the
  * message and the reply so far and `progress` the step under way and the menu being planned; once
- * it ends the conversation is refetched with both messages saved.
- * `stop` cancels the reply: the backend keeps the message but drops the unfinished reply.
+ * it ends the conversation is refetched with both messages saved. `pending` stays until that
+ * refetch (or a later one) brings the conversation: a failed one would make them vanish.
+ * `isSending` lasts until that refetch is done (one message at a time), `isStreaming` only while
+ * the request is under way. `stop` cancels the reply: the backend keeps the message but drops the
+ * unfinished reply; unmounting stops it too (`useChat`).
  * `limitReached` is set when the conversation is full: the backend did not save the message.
  */
 export function useReplyStream(id: string) {
   const queryClient = useQueryClient();
   const transport = useMemo(() => createReplyTransport(id), [id]);
   const failed = useRef(false);
+  // A ref as well as state: a second `send` before the next render must see the first one.
+  const busy = useRef(false);
+  const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState<ReplyProgress>(NO_PROGRESS);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  // `pending` shows while the saved conversation has had no more updates than this.
+  const [shownUntil, setShownUntil] = useState(-1);
+  const savedUpdates = queryClient.getQueryState(chatKeys.detail(id))?.dataUpdateCount ?? 0;
   const chat = useChat({
     id,
     transport,
@@ -86,22 +117,38 @@ export function useReplyStream(id: string) {
     },
   });
 
-  /** Resolves to false when the message or the reply failed. */
+  /**
+   * Resolves to false when the message or the reply failed, or when another message is still being
+   * sent (it is not sent then).
+   */
   const send = async (content: string): Promise<boolean> => {
-    failed.current = false;
-    setProgress(NO_PROGRESS);
-    setErrorCode(null);
-    await chat.sendMessage({ text: content }, { body: { content } });
-    setProgress(NO_PROGRESS);
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: chatKeys.detail(id) }),
-      queryClient.invalidateQueries({ queryKey: chatKeys.list() }),
-      // A reply may plan a new menu or a new version of one.
-      queryClient.invalidateQueries({ queryKey: menuKeys.all }),
-    ]);
-    chat.setMessages([]);
-    return !failed.current;
+    if (busy.current) return false;
+    busy.current = true;
+    setSending(true);
+    try {
+      failed.current = false;
+      setProgress(NO_PROGRESS);
+      setErrorCode(null);
+      chat.setMessages([]);
+      setShownUntil(Infinity);
+      await chat.sendMessage({ text: content }, { body: { content } });
+      setProgress(NO_PROGRESS);
+      setShownUntil(queryClient.getQueryState(chatKeys.detail(id))?.dataUpdateCount ?? 0);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: chatKeys.detail(id) }),
+        queryClient.invalidateQueries({ queryKey: chatKeys.list() }),
+        // A reply may plan a new menu or a new version of one, or change the preferences.
+        queryClient.invalidateQueries({ queryKey: menuKeys.all }),
+        queryClient.invalidateQueries({ queryKey: preferenceKeys.all }),
+      ]);
+      return !failed.current;
+    } finally {
+      busy.current = false;
+      setSending(false);
+    }
   };
+
+  const isStreaming = chat.status === 'submitted' || chat.status === 'streaming';
 
   const error = chat.error
     ? chat.error instanceof ApiError
@@ -113,8 +160,9 @@ export function useReplyStream(id: string) {
   return {
     send,
     stop: () => void chat.stop(),
-    isSending: chat.status === 'submitted' || chat.status === 'streaming',
-    pending: chat.messages.map(toPending),
+    isSending: sending || isStreaming,
+    isStreaming,
+    pending: savedUpdates <= shownUntil ? chat.messages.map(toPending) : [],
     progress,
     error,
     limitReached: errorCode === CONVERSATION_LIMIT_REACHED,

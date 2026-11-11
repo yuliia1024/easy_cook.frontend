@@ -129,6 +129,17 @@ describe('MenusPage', () => {
 
   it('shows the versions of the open draft without a click', async () => {
     serve([], [draftMenu(2)]);
+    server.use(
+      http.get(api('/menus/d2'), () =>
+        HttpResponse.json(
+          buildMenu({
+            id: 'd2',
+            title: 'Draft 2',
+            versions: [2, 1].map((n) => buildMenuVersion({ id: `v${n}`, versionNumber: n })),
+          }),
+        ),
+      ),
+    );
     renderRoutes(routes, '/menus/d2');
 
     expect(await screen.findByRole('button', { name: 'Versions of Draft 2' })).toHaveAttribute(
@@ -207,5 +218,116 @@ describe('MenusPage', () => {
 
     expect(await screen.findByText('No active menu yet')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  describe('a confirmed menu with newer versions', () => {
+    const confirmedWithDrafts = () => {
+      serve([{ ...confirmedMenu(1, 3), versionCount: 3 }], []);
+      server.use(
+        http.get(api('/menus/c1'), () =>
+          HttpResponse.json(
+            buildMenu({
+              id: 'c1',
+              title: 'Confirmed 1',
+              confirmedVersionId: 'v2',
+              confirmedAt: '2026-10-03T10:00:00.000Z',
+              versions: [3, 2, 1].map((n) =>
+                buildMenuVersion({
+                  id: `v${n}`,
+                  versionNumber: n,
+                  isConfirmed: n === 2,
+                  notes: `Notes of v${n}`,
+                }),
+              ),
+            }),
+          ),
+        ),
+      );
+    };
+
+    it('lists its versions and opens the confirmed one', async () => {
+      confirmedWithDrafts();
+      renderRoutes(routes, '/menus');
+
+      expect(await screen.findByText('Notes of v2')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Versions of Confirmed 1' })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+      const shown = await screen.findByRole('link', { current: true });
+      expect(shown).toHaveTextContent('Version 2 · confirmed');
+      expect(screen.getByRole('combobox')).toHaveValue('v2');
+    });
+
+    it('marks the version the details show when the requested one does not exist', async () => {
+      confirmedWithDrafts();
+      renderRoutes(routes, '/menus/c1?version=9');
+
+      expect(await screen.findByText('Notes of v2')).toBeInTheDocument();
+      expect(await screen.findByRole('link', { current: true })).toHaveTextContent('Version 2');
+      expect(screen.getAllByRole('link', { current: true })).toHaveLength(1);
+    });
+  });
+
+  it('deletes the open menu without loading it again', async () => {
+    let deleted = false;
+    let detailCalls = 0;
+    server.use(
+      http.get(api('/menus'), ({ request }) => {
+        const status = new URL(request.url).searchParams.get('status');
+        return HttpResponse.json(status === 'draft' && !deleted ? [draftMenu(1)] : []);
+      }),
+      http.get(api('/menus/d1'), () => {
+        detailCalls += 1;
+        return deleted
+          ? apiError(404, 'Menu not found')
+          : HttpResponse.json(buildMenu({ id: 'd1', title: 'Draft 1' }));
+      }),
+      http.delete(api('/menus/d1'), () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user, router } = renderRoutes(routes, '/menus/d1');
+
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete this menu?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    expect(await screen.findByText('No active menu yet')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/menus');
+    expect(screen.queryByText('Menu not found')).not.toBeInTheDocument();
+    expect(detailCalls).toBe(1);
+  });
+
+  it('deletes the active menu without loading it again', async () => {
+    let deleted = false;
+    let detailCalls = 0;
+    server.use(
+      http.get(api('/menus'), ({ request }) => {
+        const status = new URL(request.url).searchParams.get('status');
+        return HttpResponse.json(status === 'confirmed' && !deleted ? [confirmedMenu(1, 3)] : []);
+      }),
+      http.get(api('/menus/c1'), () => {
+        detailCalls += 1;
+        return deleted
+          ? apiError(404, 'Menu not found')
+          : HttpResponse.json(buildMenu({ id: 'c1', title: 'Confirmed 1' }));
+      }),
+      http.delete(api('/menus/c1'), () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    // `/menus` opens the active menu; deleting it must not open it again from the old list.
+    const { user } = renderRoutes(routes, '/menus');
+
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete this menu?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    expect(await screen.findByText('No active menu yet')).toBeInTheDocument();
+    expect(screen.queryByText('Menu not found')).not.toBeInTheDocument();
+    expect(detailCalls).toBe(1);
   });
 });

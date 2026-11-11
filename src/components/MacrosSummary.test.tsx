@@ -14,7 +14,11 @@ describe('MacrosSummary', () => {
   it('marks the macros that miss ingredient values', () => {
     render(<MacrosSummary values={values} missing={['proteinG']} />);
 
-    expect(screen.getAllByTitle('Some ingredients have unknown values')).toHaveLength(1);
+    const star = screen.getByTitle('Some ingredients have unknown values');
+    expect(star).toHaveAttribute('aria-hidden', 'true');
+    // Screen readers get the note as text; a title alone is not read reliably.
+    expect(screen.getByText('(some ingredients have unknown values)')).toHaveClass('sr-only');
+    expect(star.closest('dd')).toHaveTextContent('90g*(some ingredients have unknown values)');
   });
 
   it('can sit inside a card without its own frame', () => {

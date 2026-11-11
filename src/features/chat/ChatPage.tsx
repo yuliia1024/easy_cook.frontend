@@ -1,9 +1,24 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { Link, NavLink, useNavigate, useParams } from 'react-router';
-import type { Conversation, ConversationSummary, Message, SuggestedMenu } from '../../api/types';
+import type {
+  Conversation,
+  ConversationSummary,
+  Message,
+  PreferenceChange,
+  SuggestedMenu,
+} from '../../api/types';
 import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { EmptyState } from '../../components/EmptyState';
+import { ApiError } from '../../api/http';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { CloseIcon, PlusIcon, SendIcon, StopIcon } from '../../components/icons';
 import { Spinner } from '../../components/Spinner';
@@ -14,13 +29,16 @@ import {
 } from '../../lib/limits';
 import { useTypewriter } from '../../lib/use-typewriter';
 import { useConfirmMenuVersion, useMenu } from '../menus/menus.queries';
+import { usePreferences } from '../preferences/preferences.queries';
 import {
+  useConfirmPreferenceChange,
   useConversation,
   useConversations,
   useCreateConversation,
   useDeleteConversation,
 } from './chat.queries';
 import { MenuSkeleton } from './MenuSkeleton';
+import { isInEffect, preferenceChangeText, sameChange } from './preference-change';
 import { toSuggestedMenu } from './suggested-menu';
 import { SuggestedMenuDays } from './SuggestedMenuDays';
 import { useReplyStream, type PendingMessage, type ReplyProgress } from './use-reply-stream';
@@ -31,6 +49,8 @@ const SUGGESTIONS = [
 ] as const;
 
 const SUBTITLE = 'Ask the AI assistant about meals, recipes and menus';
+
+const isNotFound = (error: unknown): boolean => error instanceof ApiError && error.isNotFound;
 
 /** `/chat` and `/chat/:id`. */
 export function ChatPage() {
@@ -164,13 +184,17 @@ function ChatPanel({
 function ConversationView({ id }: { id: string }) {
   const conversation = useConversation(id);
 
-  if (conversation.isPending)
+  // A failed background refetch keeps the loaded conversation on screen (`Messages` tells it),
+  // unless the conversation is gone.
+  if (conversation.data && !isNotFound(conversation.error))
+    // A fresh composer per conversation: the draft and the reply stream belong to one of them.
     return (
-      <ChatPanel title="Chat">
-        <div className="m-auto">
-          <Spinner />
-        </div>
-      </ChatPanel>
+      <Messages
+        key={id}
+        conversation={conversation.data}
+        refetchError={conversation.isError ? conversation.error : null}
+        onRetry={() => void conversation.refetch()}
+      />
     );
   if (conversation.isError)
     return (
@@ -180,12 +204,30 @@ function ConversationView({ id }: { id: string }) {
         </div>
       </ChatPanel>
     );
-  // A fresh composer per conversation: the draft and the reply stream belong to one of them.
-  return <Messages key={id} conversation={conversation.data} />;
+  return (
+    <ChatPanel title="Chat">
+      <div className="m-auto">
+        <Spinner />
+      </div>
+    </ChatPanel>
+  );
 }
 
-function Messages({ conversation }: { conversation: Conversation }) {
+function Messages({
+  conversation,
+  refetchError,
+  onRetry,
+}: {
+  conversation: Conversation;
+  /** The conversation could not be refreshed; the loaded one is still shown. */
+  refetchError: Error | null;
+  onRetry: () => void;
+}) {
   const reply = useReplyStream(conversation.id);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Streamed replies still typing out; the log waits for them before it is read out.
+  const [typing, setTyping] = useState(0);
+  const onTyping = useCallback((delta: number) => setTyping((count) => count + delta), []);
   const [draft, setDraft] = useState('');
   const content = draft.trim();
   const tooLong = draft.length > MESSAGE_MAX_LENGTH;
@@ -196,6 +238,20 @@ function Messages({ conversation }: { conversation: Conversation }) {
   );
   const messages = [...conversation.messages, ...pending];
   const answered = pending.some((message) => message.role === 'assistant');
+  // As the backend: only the change the latest saved reply proposed waits for confirmation.
+  const latestReply = conversation.messages.findLast(({ role }) => role === 'assistant');
+  // A yes in the chat applied a change: it reads as applied before the preferences are refetched.
+  const appliedInChat = reply.pending.flatMap(({ preferencesUpdated }) =>
+    preferencesUpdated ? [preferencesUpdated] : [],
+  );
+  // While a message is sent or the conversation is not up to date, it is neither.
+  const settled = !reply.isSending && reply.pending.length === 0 && !refetchError;
+  const proposalStatus = (message: Message | PendingMessage): ProposalStatus =>
+    'suggestedMenu' in message || (message.id === latestReply?.id && !settled)
+      ? 'unsettled'
+      : message.id === latestReply?.id
+        ? 'pending'
+        : 'outdated';
   const sentByUser = conversation.messages.filter(({ role }) => role === 'user').length;
   const full = reply.limitReached || sentByUser >= CONVERSATION_MAX_USER_MESSAGES;
 
@@ -203,6 +259,8 @@ function Messages({ conversation }: { conversation: Conversation }) {
     const message = text.trim();
     if (!message || text.length > MESSAGE_MAX_LENGTH || reply.isSending || full) return;
     setDraft('');
+    // The Send button turns into Stop: the focus stays on the message box.
+    textareaRef.current?.focus();
     if (!(await reply.send(message))) setDraft(text);
   };
 
@@ -233,20 +291,40 @@ function Messages({ conversation }: { conversation: Conversation }) {
       }
     >
       <div className="flex flex-1 flex-col gap-4 bg-sage-25 p-5 sm:p-7">
-        {messages.length === 0 ? (
-          <div className="m-auto">
-            <EmptyState title="No messages yet">Try one of the suggestions below.</EmptyState>
-          </div>
-        ) : (
-          <ol aria-label="Messages" className="flex flex-col gap-4.5">
-            {messages.map((message, index) => (
-              // By position: a streamed reply gets its saved id later, and its bubble (with the
-              // picked day of a suggested menu) has to stay mounted. Messages are only appended.
-              <MessageBubble key={index} message={message} streamed={index >= saved} />
-            ))}
-            {reply.isSending && !answered && <ReplyProgressBubble progress={reply.progress} />}
-          </ol>
+        {refetchError && (
+          <ErrorAlert error={refetchError} title="Could not refresh" onRetry={onRetry} />
         )}
+        {/* New messages are read out; a reply only once it is all there, not as it types out. */}
+        <div
+          role="log"
+          aria-label="Conversation"
+          aria-live="polite"
+          aria-busy={(reply.isSending && answered) || typing > 0 || undefined}
+          className="flex flex-1 flex-col"
+        >
+          {messages.length === 0 ? (
+            <div className="m-auto">
+              <EmptyState title="No messages yet">Try one of the suggestions below.</EmptyState>
+            </div>
+          ) : (
+            <ol aria-label="Messages" className="flex flex-col gap-4.5">
+              {messages.map((message, index) => (
+                // By position: a streamed reply gets its saved id later, and its bubble (with the
+                // picked day of a suggested menu) has to stay mounted. Messages are only appended.
+                <MessageBubble
+                  key={index}
+                  message={message}
+                  streamed={index >= saved}
+                  conversationId={conversation.id}
+                  proposalStatus={proposalStatus(message)}
+                  appliedInChat={appliedInChat}
+                  onTyping={onTyping}
+                />
+              ))}
+              {reply.isStreaming && !answered && <ReplyProgressBubble progress={reply.progress} />}
+            </ol>
+          )}
+        </div>
         {reply.error && !reply.limitReached && (
           <ErrorAlert error={reply.error} title="The message was not sent" />
         )}
@@ -281,6 +359,7 @@ function Messages({ conversation }: { conversation: Conversation }) {
             Message
           </label>
           <textarea
+            ref={textareaRef}
             id="message"
             rows={2}
             className="min-w-0 flex-1 resize-none bg-transparent py-1.5 text-[15px] outline-none placeholder:text-sage-500"
@@ -298,8 +377,16 @@ function Messages({ conversation }: { conversation: Conversation }) {
           >
             {draft.length} / {MESSAGE_MAX_LENGTH}
           </p>
-          {reply.isSending ? (
-            <Button variant="icon" aria-label="Stop" onClick={reply.stop}>
+          {reply.isStreaming ? (
+            <Button
+              variant="icon"
+              aria-label="Stop"
+              onClick={() => {
+                reply.stop();
+                // The Stop button goes away with the reply.
+                textareaRef.current?.focus();
+              }}
+            >
               <StopIcon />
             </Button>
           ) : (
@@ -307,7 +394,7 @@ function Messages({ conversation }: { conversation: Conversation }) {
               variant="icon"
               type="submit"
               aria-label="Send"
-              disabled={!content || tooLong || full}
+              disabled={!content || tooLong || full || reply.isSending}
             >
               <SendIcon size={18} />
             </Button>
@@ -407,12 +494,30 @@ function useReplyMenu(message: Message | PendingMessage): SuggestedMenu | null {
 function MessageBubble({
   message,
   streamed,
+  conversationId,
+  proposalStatus,
+  appliedInChat,
+  onTyping,
 }: {
   message: Message | PendingMessage;
   streamed: boolean;
+  conversationId: string;
+  /** Where its preference change stands, if it has one. */
+  proposalStatus: ProposalStatus;
+  /** The changes the reply under way applied (`data-preferences-updated`). */
+  appliedInChat: PreferenceChange[];
+  /** +1 when the reply starts typing out, -1 once it is all shown. */
+  onTyping: (delta: number) => void;
 }) {
   const typed = useTypewriter(message.content, streamed && message.role === 'assistant');
   const menu = useReplyMenu(message);
+  const typing = !typed.done;
+
+  useEffect(() => {
+    if (!typing) return;
+    onTyping(1);
+    return () => onTyping(-1);
+  }, [typing, onTyping]);
 
   if (message.role === 'user') {
     return (
@@ -441,18 +546,103 @@ function MessageBubble({
         ))}
       {typed.done && message.menuId && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Link
-            to={`/menus/${message.menuId}`}
-            className="font-medium text-brand-800 hover:underline"
-          >
-            Open menu
-          </Link>
+          <OpenMenuLink menuId={message.menuId} versionId={message.menuVersionId} />
           {message.menuVersionId && (
             <ConfirmVersion menuId={message.menuId} versionId={message.menuVersionId} />
           )}
         </div>
       )}
+      {typed.done && message.preferenceChange && (
+        <ProposedPreferenceChange
+          conversationId={conversationId}
+          change={message.preferenceChange}
+          appliedInChat={appliedInChat.some((applied) =>
+            sameChange(applied, message.preferenceChange!),
+          )}
+          status={proposalStatus}
+        />
+      )}
     </li>
+  );
+}
+
+/** Opens the menu at the version the reply was saved as, not the one the menu shows by default. */
+function OpenMenuLink({ menuId, versionId }: { menuId: string; versionId: string | null }) {
+  const menu = useMenu(versionId ? menuId : undefined);
+  const number = menu.data?.versions.find(({ id }) => id === versionId)?.versionNumber;
+
+  return (
+    <Link
+      to={number ? `/menus/${menuId}?version=${number}` : `/menus/${menuId}`}
+      className="font-medium text-brand-800 hover:underline"
+    >
+      Open menu
+    </Link>
+  );
+}
+
+/**
+ * `pending`: the latest saved reply's change, the only one that can be confirmed (as the backend);
+ * `outdated`: a later saved reply ended it; `unsettled`: not saved yet, or a message is on its way.
+ */
+type ProposalStatus = 'pending' | 'outdated' | 'unsettled';
+
+/**
+ * A change of the dietary preferences a reply proposed. Nothing is written until it is confirmed,
+ * here or by a yes in the chat; only the latest reply's change can be (`pending`). It reads as
+ * applied once the saved preferences have it.
+ */
+function ProposedPreferenceChange({
+  conversationId,
+  change,
+  appliedInChat,
+  status,
+}: {
+  conversationId: string;
+  change: PreferenceChange;
+  appliedInChat: boolean;
+  status: ProposalStatus;
+}) {
+  const preferences = usePreferences();
+  const confirm = useConfirmPreferenceChange(conversationId);
+  const appliedRef = useRef<HTMLSpanElement>(null);
+
+  // The focused Confirm button gives way to the badge: the focus goes with it.
+  useEffect(() => {
+    if (confirm.isSuccess) appliedRef.current?.focus();
+  }, [confirm.isSuccess]);
+  const applied =
+    appliedInChat ||
+    confirm.isSuccess ||
+    Boolean(preferences.data && isInEffect(change, preferences.data));
+
+  return (
+    <section
+      aria-label="Proposed preference change"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[14px] border border-sage-200 bg-sage-25 px-4 py-3 text-sm"
+    >
+      <p className="min-w-0 flex-1 font-medium">{preferenceChangeText(change)}</p>
+      {preferences.isPending && !applied ? null : applied ? (
+        <span
+          ref={appliedRef}
+          tabIndex={-1}
+          className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800"
+        >
+          Applied
+        </span>
+      ) : status === 'pending' ? (
+        <Button onClick={() => confirm.mutate(change)} loading={confirm.isPending}>
+          Confirm change
+        </Button>
+      ) : status === 'outdated' ? (
+        <span className="text-xs text-sage-500">Not applied</span>
+      ) : null}
+      {confirm.isError && (
+        <div className="w-full">
+          <ErrorAlert error={confirm.error} title="Could not change the preferences" />
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -463,11 +653,21 @@ function MessageBubble({
 function ConfirmVersion({ menuId, versionId }: { menuId: string; versionId: string }) {
   const menu = useMenu(menuId);
   const confirm = useConfirmMenuVersion(menuId);
+  const confirmedRef = useRef<HTMLSpanElement>(null);
+
+  // The focused Confirm button gives way to the badge: the focus goes with it.
+  useEffect(() => {
+    if (confirm.isSuccess) confirmedRef.current?.focus();
+  }, [confirm.isSuccess]);
 
   if (!menu.data) return null;
   if (menu.data.confirmedVersionId === versionId) {
     return (
-      <span className="ml-auto rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800">
+      <span
+        ref={confirmedRef}
+        tabIndex={-1}
+        className="ml-auto rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800"
+      >
         Confirmed
       </span>
     );

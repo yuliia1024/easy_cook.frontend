@@ -1,4 +1,5 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { focusManager } from '@tanstack/react-query';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import {
   buildConversation,
   buildConversationSummary,
@@ -6,6 +7,7 @@ import {
   buildMenuMeal,
   buildMenuVersion,
   buildMessage,
+  buildPreference,
   buildRecipeSnapshot,
   buildSuggestedMenu,
   CONVERSATION_ID,
@@ -339,9 +341,53 @@ describe('ChatPage', () => {
     expect(
       await within(messages).findByRole('link', { name: 'Saved oatmeal' }),
     ).toBeInTheDocument();
+    // At the version the reply was saved as, not the one the menu opens at.
     expect(within(messages).getByRole('link', { name: 'Open menu' })).toHaveAttribute(
       'href',
-      '/menus/m',
+      '/menus/m?version=1',
+    );
+  });
+
+  it('opens a revised confirmed menu at the version of the reply', async () => {
+    server.use(
+      http.get(api('/menus/m'), () =>
+        HttpResponse.json(
+          buildMenu({
+            id: 'm',
+            confirmedVersionId: 'v2',
+            confirmedAt: '2026-10-21T10:00:00.000Z',
+            versions: [
+              { ...savedVersion('v3', 'Revised oatmeal'), versionNumber: 3 },
+              { ...savedVersion('v2', 'Confirmed oatmeal'), versionNumber: 2, isConfirmed: true },
+            ],
+          }),
+        ),
+      ),
+      http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+        HttpResponse.json(
+          buildConversation({
+            messages: [
+              buildMessage({
+                id: 'reply',
+                role: 'assistant',
+                content: 'I swapped the breakfast.',
+                menuId: 'm',
+                menuVersionId: 'v3',
+              }),
+            ],
+          }),
+        ),
+      ),
+    );
+    renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+    const messages = await screen.findByRole('list', { name: 'Messages' });
+    await waitFor(() =>
+      expect(within(messages).getByRole('link', { name: 'Open menu' })).toHaveAttribute(
+        'href',
+        '/menus/m?version=3',
+      ),
     );
   });
 
@@ -804,5 +850,459 @@ describe('ChatPage', () => {
       expect(screen.getByLabelText('Message')).toHaveValue('One more');
       expect(screen.getByLabelText('Message')).toBeDisabled();
     });
+  });
+
+  describe('while a message is sent', () => {
+    /** A reply stream that sends `text` and stays open until the client aborts. */
+    const openStream = (request: Request, text: string) => {
+      const encoder = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          [
+            { type: 'start' },
+            { type: 'text-start', id: 'text' },
+            { type: 'text-delta', id: 'text', delta: text },
+          ].forEach((chunk) =>
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)),
+          );
+          request.signal.addEventListener('abort', () => controller.error(request.signal.reason));
+        },
+      });
+      return new HttpResponse(body, {
+        status: 201,
+        headers: { 'Content-Type': 'text/event-stream', 'x-vercel-ai-ui-message-stream': 'v1' },
+      });
+    };
+
+    it('takes no second message until the first one is saved and shown', async () => {
+      let gets = 0;
+      let posts = 0;
+      let release = (): void => undefined;
+      const refreshed = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      server.use(
+        http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+        http.get(api(`/conversations/${CONVERSATION_ID}`), async () => {
+          gets += 1;
+          if (gets === 1) return HttpResponse.json(buildConversation());
+          // The refetch after the reply hangs until released.
+          await refreshed;
+          return HttpResponse.json(
+            buildConversation({
+              messages: [
+                buildMessage({ content: 'First' }),
+                buildMessage({ id: 'r', role: 'assistant', content: 'Hello there' }),
+              ],
+            }),
+          );
+        }),
+        http.post(api(`/conversations/${CONVERSATION_ID}/messages`), () => {
+          posts += 1;
+          return uiMessageStream([
+            { type: 'start' },
+            { type: 'text-start', id: 'text' },
+            { type: 'text-delta', id: 'text', delta: 'Hello there' },
+            { type: 'text-end', id: 'text' },
+            { type: 'finish' },
+          ]);
+        }),
+      );
+      const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const input = await screen.findByLabelText('Message');
+      await user.type(input, 'First{Enter}');
+      // The reply is in; the conversation is being refetched.
+      await waitFor(() => expect(gets).toBe(2));
+      expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
+
+      await user.type(input, 'Second{Enter}');
+      expect(posts).toBe(1);
+      expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+      expect(input).toHaveValue('Second');
+
+      await act(async () => release());
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled());
+      const messages = screen.getByRole('list', { name: 'Messages' });
+      expect(within(messages).getByText('First')).toBeInTheDocument();
+      expect(await within(messages).findByText('Hello there')).toBeInTheDocument();
+      expect(posts).toBe(1);
+    });
+
+    it('keeps the focus on the message box and reads the reply out once it is all there', async () => {
+      let sent = false;
+      server.use(
+        http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+        http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+          HttpResponse.json(
+            buildConversation({
+              messages: sent ? [buildMessage({ content: 'Tell a story' })] : [],
+            }),
+          ),
+        ),
+        http.post(api(`/conversations/${CONVERSATION_ID}/messages`), ({ request }) => {
+          sent = true;
+          return openStream(request, 'Once upon a time');
+        }),
+      );
+      const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const log = await screen.findByRole('log', { name: 'Conversation' });
+      expect(log).toHaveAttribute('aria-live', 'polite');
+      const input = screen.getByLabelText('Message');
+      await user.type(input, 'Tell a story');
+      await user.click(screen.getByRole('button', { name: 'Send' }));
+
+      expect(await within(log).findByText('Once upon a time')).toBeInTheDocument();
+      expect(input).toHaveFocus();
+      // The reply is still coming: screen readers wait for it.
+      expect(log).toHaveAttribute('aria-busy', 'true');
+
+      await user.click(screen.getByRole('button', { name: 'Stop' }));
+      expect(await screen.findByRole('button', { name: 'Send' })).toBeInTheDocument();
+      expect(input).toHaveFocus();
+      await waitFor(() => expect(log).not.toHaveAttribute('aria-busy'));
+    });
+  });
+
+  it('keeps the conversation on screen when a refresh fails', async () => {
+    let gets = 0;
+    server.use(
+      http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () => {
+        gets += 1;
+        return gets === 1
+          ? HttpResponse.json(buildConversation({ messages: chatOf(1) }))
+          : apiError(500, 'Server is down');
+      }),
+    );
+    renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+    const messages = await screen.findByRole('list', { name: 'Messages' });
+    try {
+      // Coming back to the tab refetches the conversation.
+      act(() => {
+        focusManager.setFocused(false);
+        focusManager.setFocused(true);
+      });
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Could not refresh');
+      expect(screen.getByRole('alert')).toHaveTextContent('Server is down');
+      expect(within(messages).getByText('Answer 0')).toBeInTheDocument();
+      expect(screen.getByLabelText('Message')).toBeEnabled();
+    } finally {
+      focusManager.setFocused(undefined);
+    }
+  });
+
+  describe('a proposed preference change', () => {
+    const change = { action: 'add', preferenceType: 'allergy', value: 'peanut' } as const;
+    const proposal = buildMessage({
+      id: 'proposal',
+      role: 'assistant',
+      content: 'Shall I add a peanut allergy?',
+      preferenceChange: change,
+    });
+
+    /** The conversation `messages` and the saved preferences, `[]` until `saved()` says so. */
+    const serveChat = (
+      messages = [buildMessage({ content: 'I am allergic to peanuts' }), proposal],
+    ) => {
+      let added = false;
+      server.use(
+        http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+        http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+          HttpResponse.json(buildConversation({ messages })),
+        ),
+        http.get(api('/preferences'), () =>
+          HttpResponse.json(added ? [buildPreference({ value: 'peanut' })] : []),
+        ),
+      );
+      return {
+        saved: () => {
+          added = true;
+        },
+      };
+    };
+
+    it('confirms the change of the latest reply and shows it applied', async () => {
+      const preferences = serveChat();
+      let body: unknown;
+      server.use(
+        http.post(
+          api(`/conversations/${CONVERSATION_ID}/preference-change/confirm`),
+          async ({ request }) => {
+            body = await request.json();
+            preferences.saved();
+            return HttpResponse.json({ status: 'applied', change });
+          },
+        ),
+      );
+      const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const box = await screen.findByRole('region', { name: 'Proposed preference change' });
+      expect(box).toHaveTextContent('Add allergy: peanut');
+      await user.click(await within(box).findByRole('button', { name: 'Confirm change' }));
+
+      expect(await within(box).findByText('Applied')).toBeInTheDocument();
+      expect(within(box).queryByRole('button')).not.toBeInTheDocument();
+      // The focus moves from the button to the badge that replaced it.
+      expect(within(box).getByText('Applied')).toHaveFocus();
+      expect(body).toEqual(change);
+    });
+
+    it('shows why the change could not be confirmed and lets it be tried again', async () => {
+      serveChat();
+      server.use(
+        http.post(api(`/conversations/${CONVERSATION_ID}/preference-change/confirm`), () =>
+          apiError(
+            409,
+            'This is not the preference change waiting for confirmation; confirm the latest one.',
+          ),
+        ),
+      );
+      const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const box = await screen.findByRole('region', { name: 'Proposed preference change' });
+      await user.click(await within(box).findByRole('button', { name: 'Confirm change' }));
+
+      const alert = await within(box).findByRole('alert');
+      expect(alert).toHaveTextContent('Could not change the preferences');
+      expect(alert).toHaveTextContent('confirm the latest one');
+      expect(within(box).getByRole('button', { name: 'Confirm change' })).toBeEnabled();
+      expect(within(box).queryByText('Applied')).not.toBeInTheDocument();
+    });
+
+    it('offers no confirmation for a change a later reply ended', async () => {
+      serveChat([
+        proposal,
+        buildMessage({ id: 'q', content: 'Plan my day instead' }),
+        buildMessage({ id: 'later', role: 'assistant', content: 'Here is your day.' }),
+      ]);
+      renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const box = await screen.findByRole('region', { name: 'Proposed preference change' });
+      expect(await within(box).findByText('Not applied')).toBeInTheDocument();
+      expect(within(box).queryByRole('button')).not.toBeInTheDocument();
+    });
+
+    it('shows a change that is in effect already as applied', async () => {
+      serveChat().saved();
+      renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const box = await screen.findByRole('region', { name: 'Proposed preference change' });
+      expect(await within(box).findByText('Applied')).toBeInTheDocument();
+      expect(within(box).queryByRole('button')).not.toBeInTheDocument();
+    });
+
+    it('shows the change applied as soon as a yes in the chat applied it', async () => {
+      let answered = false;
+      let release = (): void => undefined;
+      const refreshed = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      server.use(
+        http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+        http.get(api(`/conversations/${CONVERSATION_ID}`), async () => {
+          if (!answered) return HttpResponse.json(buildConversation({ messages: [proposal] }));
+          // The refetch after the reply hangs: only the stream says the change was applied.
+          await refreshed;
+          return HttpResponse.json(buildConversation({ messages: [proposal] }));
+        }),
+        // Never has the change: the badge can only come from the stream.
+        http.get(api('/preferences'), () => HttpResponse.json([])),
+        http.post(api(`/conversations/${CONVERSATION_ID}/messages`), () => {
+          answered = true;
+          return uiMessageStream([
+            { type: 'start' },
+            { type: 'text-start', id: 'text' },
+            { type: 'text-delta', id: 'text', delta: 'Added it.' },
+            { type: 'text-end', id: 'text' },
+            { type: 'data-preferences-updated', data: { change } },
+            { type: 'finish' },
+          ]);
+        }),
+      );
+      const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const box = await screen.findByRole('region', { name: 'Proposed preference change' });
+      expect(await within(box).findByRole('button', { name: 'Confirm change' })).toBeEnabled();
+      await user.type(screen.getByLabelText('Message'), 'Yes{Enter}');
+
+      expect(await within(box).findByText('Applied')).toBeInTheDocument();
+      expect(within(box).queryByRole('button')).not.toBeInTheDocument();
+      await act(async () => release());
+    });
+
+    it('waits, without a state, while a message is on its way', async () => {
+      serveChat();
+      server.use(
+        http.post(api(`/conversations/${CONVERSATION_ID}/messages`), ({ request }) => {
+          const encoder = new TextEncoder();
+          const body = new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'start' })}\n\n`));
+              request.signal.addEventListener('abort', () =>
+                controller.error(request.signal.reason),
+              );
+            },
+          });
+          return new HttpResponse(body, {
+            status: 201,
+            headers: {
+              'Content-Type': 'text/event-stream',
+              'x-vercel-ai-ui-message-stream': 'v1',
+            },
+          });
+        }),
+      );
+      const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const box = await screen.findByRole('region', { name: 'Proposed preference change' });
+      await within(box).findByRole('button', { name: 'Confirm change' });
+      await user.type(screen.getByLabelText('Message'), 'Not now{Enter}');
+
+      expect(await screen.findByRole('button', { name: 'Stop' })).toBeInTheDocument();
+      expect(within(box).queryByRole('button')).not.toBeInTheDocument();
+      expect(within(box).queryByText('Not applied')).not.toBeInTheDocument();
+      expect(within(box).queryByText('Applied')).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Stop' }));
+    });
+
+    it('offers no confirmation while the conversation could not be refreshed', async () => {
+      let gets = 0;
+      server.use(
+        http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+        http.get(api(`/conversations/${CONVERSATION_ID}`), () => {
+          gets += 1;
+          return gets === 1
+            ? HttpResponse.json(buildConversation({ messages: [proposal] }))
+            : apiError(500, 'Server is down');
+        }),
+        http.get(api('/preferences'), () => HttpResponse.json([])),
+      );
+      renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const box = await screen.findByRole('region', { name: 'Proposed preference change' });
+      await within(box).findByRole('button', { name: 'Confirm change' });
+      try {
+        act(() => {
+          focusManager.setFocused(false);
+          focusManager.setFocused(true);
+        });
+        expect(await screen.findByText('Could not refresh')).toBeInTheDocument();
+        expect(within(box).queryByRole('button')).not.toBeInTheDocument();
+      } finally {
+        focusManager.setFocused(undefined);
+      }
+    });
+  });
+
+  it('keeps the messages of a reply when the refresh after it fails', async () => {
+    let gets = 0;
+    server.use(
+      http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () => {
+        gets += 1;
+        if (gets === 1) return HttpResponse.json(buildConversation());
+        if (gets === 2) return apiError(500, 'Server is down');
+        return HttpResponse.json(
+          buildConversation({
+            messages: [
+              buildMessage({ content: 'Hello' }),
+              buildMessage({ id: 'r', role: 'assistant', content: 'Hi there' }),
+            ],
+          }),
+        );
+      }),
+      http.post(api(`/conversations/${CONVERSATION_ID}/messages`), () =>
+        uiMessageStream([
+          { type: 'start' },
+          { type: 'text-start', id: 'text' },
+          { type: 'text-delta', id: 'text', delta: 'Hi there' },
+          { type: 'text-end', id: 'text' },
+          { type: 'finish' },
+        ]),
+      ),
+    );
+    const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+    await user.type(await screen.findByLabelText('Message'), 'Hello{Enter}');
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Could not refresh');
+    const messages = screen.getByRole('list', { name: 'Messages' });
+    expect(within(messages).getByText('Hello')).toBeInTheDocument();
+    expect(await within(messages).findByText('Hi there')).toBeInTheDocument();
+    expect(screen.getByLabelText('Message')).toHaveValue('');
+
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    // The saved ones take their place, once.
+    expect(
+      within(screen.getByRole('list', { name: 'Messages' })).getAllByRole('listitem'),
+    ).toHaveLength(2);
+  });
+
+  it('stops showing a conversation that is gone', async () => {
+    let gets = 0;
+    server.use(
+      http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () => {
+        gets += 1;
+        return gets === 1
+          ? HttpResponse.json(buildConversation({ messages: chatOf(1) }))
+          : apiError(404, 'Conversation not found');
+      }),
+    );
+    renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+    await screen.findByRole('list', { name: 'Messages' });
+    try {
+      act(() => {
+        focusManager.setFocused(false);
+        focusManager.setFocused(true);
+      });
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Conversation not found');
+      expect(screen.queryByRole('list', { name: 'Messages' })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Message')).not.toBeInTheDocument();
+    } finally {
+      focusManager.setFocused(undefined);
+    }
+  });
+
+  it('moves the focus to the badge once a menu is confirmed', async () => {
+    let confirmed = false;
+    server.use(
+      http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+      http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+        HttpResponse.json(
+          buildConversation({
+            messages: [
+              buildMessage({
+                id: 'reply',
+                role: 'assistant',
+                content: 'Here is your day.',
+                menuId: MENU_ID,
+                menuVersionId: VERSION_ID,
+              }),
+            ],
+          }),
+        ),
+      ),
+      http.get(api(`/menus/${MENU_ID}`), () =>
+        HttpResponse.json(buildMenu({ confirmedVersionId: confirmed ? VERSION_ID : null })),
+      ),
+      http.post(api(`/menus/${MENU_ID}/versions/${VERSION_ID}/confirm`), () => {
+        confirmed = true;
+        return HttpResponse.json(buildMenu({ confirmedVersionId: VERSION_ID }));
+      }),
+    );
+    const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+    await user.click(await screen.findByRole('button', { name: 'Confirm menu' }));
+
+    expect(await screen.findByText('Confirmed')).toHaveFocus();
   });
 });

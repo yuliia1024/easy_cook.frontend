@@ -58,3 +58,6 @@ export const MENU_SERVINGS_LIMITS = { min: 0.5, max: 2 } as const;
 export const CONVERSATION_MAX_USER_MESSAGES = 50;
 // Not in the backend: from this many messages of the user the chat suggests a new conversation.
 export const CONVERSATION_LONG_USER_MESSAGES = 45;
+
+// MAX_PAGE in the backend (`constants/pagination.ts`): the highest page a list takes.
+export const MAX_PAGE = 10_000;

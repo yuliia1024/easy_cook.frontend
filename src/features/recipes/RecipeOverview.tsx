@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import type { Recipe } from '../../api/types';
+import { AllergenList } from '../../components/AllergenList';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { MACRO_TEXT_TONES } from '../../components/macro-tones';
 import { MacrosSummary } from '../../components/MacrosSummary';
@@ -9,6 +10,12 @@ import { formatNumber, formatServings, servingsLabel } from '../../lib/format';
 import { FOOD_STATE_LABELS } from '../../lib/labels';
 import { scaleMacros } from '../../lib/menu-servings';
 import { useRecipeNutrition } from './recipes.queries';
+
+/**
+ * An empty list does not mean "none": the backend derives allergens only when a seed recipe is
+ * imported, never for one added through the API, and does not recalculate them after an edit.
+ */
+const NO_ALLERGENS_TEXT = 'No allergens recorded; check the ingredients.';
 
 /**
  * The description, calories and macros, ingredients and instructions of a recipe. Opened from a
@@ -32,6 +39,11 @@ export function RecipeOverview({
   return (
     <>
       {recipe.description && <p className="mb-6 text-sage-700">{recipe.description}</p>}
+      {recipe.allergens.length > 0 ? (
+        <AllergenList allergens={recipe.allergens} label="Allergens" className="mb-6" />
+      ) : (
+        <p className="mb-6 text-sm text-sage-500">{NO_ALLERGENS_TEXT}</p>
+      )}
 
       <section aria-labelledby={`${id}-nutrition`} className="mb-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

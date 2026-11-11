@@ -1,14 +1,34 @@
 import { DefaultChatTransport, type UIMessage } from 'ai';
-import { BASE_URL, request, streamFetch } from './http';
-import type { Conversation, ConversationInput, ConversationSummary } from './types';
+import { BASE_URL, request, streamFetch, type CallOptions } from './http';
+import type {
+  Conversation,
+  ConversationInput,
+  ConversationSummary,
+  PreferenceChange,
+  PreferenceChangeResult,
+} from './types';
 
 export const conversationsApi = {
-  list: (): Promise<ConversationSummary[]> => request('/conversations'),
-  get: (id: string): Promise<Conversation> => request(`/conversations/${encodeURIComponent(id)}`),
+  list: ({ signal }: CallOptions = {}): Promise<ConversationSummary[]> =>
+    request('/conversations', { signal }),
+  get: (id: string, { signal }: CallOptions = {}): Promise<Conversation> =>
+    request(`/conversations/${encodeURIComponent(id)}`, { signal }),
   create: (input: ConversationInput = {}): Promise<Conversation> =>
     request('/conversations', { method: 'POST', body: input }),
   remove: (id: string): Promise<void> =>
     request(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  /**
+   * Applies the change the latest reply proposed; the body is that change as shown. 404 when the
+   * latest reply proposed none, 409 when it is another change, 400 when the preferences refuse it.
+   */
+  confirmPreferenceChange: (
+    id: string,
+    change: PreferenceChange,
+  ): Promise<PreferenceChangeResult> =>
+    request(`/conversations/${encodeURIComponent(id)}/preference-change/confirm`, {
+      method: 'POST',
+      body: change,
+    }),
 };
 
 /**

@@ -78,9 +78,13 @@ describe('RecipeDetailsPage', () => {
     expect(requested).toEqual(['false', 'true']);
   });
 
-  it('deletes after confirmation', async () => {
+  it('deletes after confirmation without reloading the deleted recipe', async () => {
+    let loads = 0;
     server.use(
-      http.get(api(`/recipes/${recipe.id}`), () => HttpResponse.json(recipe)),
+      http.get(api(`/recipes/${recipe.id}`), () => {
+        loads += 1;
+        return loads === 1 ? HttpResponse.json(recipe) : apiError(404, 'Recipe not found');
+      }),
       http.get(api(`/recipes/${recipe.id}/nutrition`), () => HttpResponse.json(buildNutrition())),
       http.delete(api(`/recipes/${recipe.id}`), () => new HttpResponse(null, { status: 204 })),
     );
@@ -90,6 +94,8 @@ describe('RecipeDetailsPage', () => {
     const dialog = screen.getByRole('alertdialog', { name: 'Delete this recipe?' });
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
     expect(await screen.findByText('recipes list')).toBeInTheDocument();
+    expect(loads).toBe(1);
+    expect(screen.queryByText('Recipe not found')).not.toBeInTheDocument();
   });
 
   it('shows a not found error', async () => {

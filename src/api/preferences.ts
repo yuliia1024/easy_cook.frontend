@@ -1,9 +1,10 @@
-import { request } from './http';
+import { request, type CallOptions } from './http';
 import type { DietaryPreference, DietaryPreferenceInput } from './types';
 
 export const preferencesApi = {
   /** 404 until the profile is saved. */
-  list: (): Promise<DietaryPreference[]> => request('/preferences'),
+  list: ({ signal }: CallOptions = {}): Promise<DietaryPreference[]> =>
+    request('/preferences', { signal }),
   add: (input: DietaryPreferenceInput): Promise<DietaryPreference> =>
     request('/preferences', { method: 'POST', body: input }),
   remove: (id: string): Promise<void> =>
