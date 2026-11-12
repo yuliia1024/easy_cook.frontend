@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ConfirmDialog } from './ConfirmDialog';
 import { Modal } from './Modal';
 
 function renderModal() {
@@ -52,5 +53,63 @@ describe('Modal', () => {
     expect(screen.getByRole('button', { name: 'Action' })).toHaveFocus();
     await user.tab({ shift: true });
     expect(screen.getByLabelText('Amount')).toHaveFocus();
+  });
+
+  it('skips hidden, disabled and tabindex=-1 controls when wrapping the focus', async () => {
+    const user = userEvent.setup();
+    render(
+      <Modal title="Oatmeal" onClose={vi.fn()}>
+        <input aria-label="Amount" />
+        <button type="button" disabled>
+          Disabled
+        </button>
+        <button type="button" tabIndex={-1}>
+          Skipped
+        </button>
+        <input type="hidden" name="id" />
+      </Modal>,
+    );
+
+    await user.tab();
+    expect(screen.getByLabelText('Amount')).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(screen.getByLabelText('Amount')).toHaveFocus();
+  });
+
+  it('only lets the topmost dialog react to Escape', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onCancel = vi.fn();
+    const { rerender } = render(
+      <Modal title="Oatmeal" onClose={onClose}>
+        <p>Body</p>
+      </Modal>,
+    );
+    rerender(
+      <Modal title="Oatmeal" onClose={onClose}>
+        <ConfirmDialog
+          title="Delete?"
+          confirmLabel="Delete"
+          onConfirm={vi.fn()}
+          onCancel={onCancel}
+        >
+          Sure?
+        </ConfirmDialog>
+      </Modal>,
+    );
+
+    await user.keyboard('{Escape}');
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+
+    rerender(
+      <Modal title="Oatmeal" onClose={onClose}>
+        <p>Body</p>
+      </Modal>,
+    );
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });

@@ -24,6 +24,19 @@ describe('RecipeDialog', () => {
     expect(within(dialog).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
   });
 
+  it('shows the allergens of the recipe', async () => {
+    const withAllergens = buildRecipe({ source: 'seed', allergens: ['gluten', 'milk'] });
+    server.use(
+      http.get(api(`/recipes/${recipe.id}`), () => HttpResponse.json(withAllergens)),
+      http.get(api(`/recipes/${recipe.id}/nutrition`), () => HttpResponse.json(buildNutrition())),
+    );
+    renderPage(<RecipeDialog recipeId={recipe.id} servings={1} onClose={vi.fn()} />);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Buckwheat with chicken' });
+    const list = await within(dialog).findByRole('list', { name: 'Allergens' });
+    expect(list).toHaveTextContent('glutenmilk');
+  });
+
   it('shows an error when the recipe cannot be loaded', async () => {
     server.use(http.get(api(`/recipes/${recipe.id}`), () => apiError(404, 'Recipe not found')));
     renderPage(<RecipeDialog recipeId={recipe.id} servings={1} onClose={vi.fn()} />);

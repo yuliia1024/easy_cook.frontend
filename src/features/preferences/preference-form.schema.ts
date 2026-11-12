@@ -10,14 +10,19 @@ export const preferenceFormSchema = z
   .object({
     preferenceType: z.enum(keys(PREFERENCE_TYPE_LABELS)),
     diet: z.enum(keys(DIET_TAG_LABELS)),
-    value: z
-      .string()
-      .trim()
-      .max(PREFERENCE_VALUE_MAX_LENGTH, `At most ${PREFERENCE_VALUE_MAX_LENGTH} characters`),
+    value: z.string().trim(),
   })
   .superRefine((form, ctx) => {
-    if (form.preferenceType !== 'diet' && form.value === '') {
+    // The text field is hidden for a diet (and not sent), whatever it still holds.
+    if (form.preferenceType === 'diet') return;
+    if (form.value === '') {
       ctx.addIssue({ code: 'custom', path: ['value'], message: 'Enter a value' });
+    } else if (form.value.length > PREFERENCE_VALUE_MAX_LENGTH) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['value'],
+        message: `At most ${PREFERENCE_VALUE_MAX_LENGTH} characters`,
+      });
     }
   });
 

@@ -27,6 +27,8 @@ export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'ver
 export type Goal = 'lose_weight' | 'maintain' | 'gain_muscle';
 export type CalculationMode = 'manual' | 'rule_based';
 export type Macro = 'kcal' | 'proteinG' | 'fatG' | 'carbsG';
+export type Allergen =
+  'gluten' | 'milk' | 'egg' | 'fish' | 'shellfish' | 'peanut' | 'tree_nut' | 'soy' | 'sesame';
 
 export interface Page<T> {
   items: T[];
@@ -88,6 +90,8 @@ export interface Recipe {
   instructions: string;
   mealType: MealType;
   dietType: DietTag[];
+  /** Derived from the food categories for an imported recipe; empty for one created here. */
+  allergens: Allergen[];
   servings: number;
   prepTimeMinutes: number | null;
   source: string;
@@ -244,6 +248,8 @@ export interface RecipeSnapshot {
   name: string;
   mealType: string;
   dietType: string[];
+  /** `Allergen[]`; missing in snapshots taken before recipes had allergens. */
+  allergens?: string[];
   servings: number;
   prepTimeMinutes: number | null;
   perServing: Macros;
@@ -340,9 +346,18 @@ export interface StreamedMenu {
   composition: SuggestedMenu;
 }
 
-/** The step of a reply the backend is on, from a `data-status` part. */
+/** The step of a reply the backend is on, from a `data-status` part (backend `ChatStatusStep`). */
 export type ReplyStep =
-  'thinking' | 'searching_breakfasts' | 'picking_lunches' | 'checking_constraints';
+  | 'thinking'
+  | 'searching_breakfasts'
+  | 'picking_lunches'
+  | 'checking_constraints'
+  | 'searching_recipes'
+  | 'reading_recipe'
+  | 'checking_nutrition'
+  | 'calculating_nutrition'
+  | 'saving_menu'
+  | 'updating_preferences';
 
 /** The transient `data-status` part of a streamed reply. */
 export interface StreamedStatus {
@@ -366,6 +381,34 @@ export interface PendingMenu {
   mealTypes: MealType[];
 }
 
+export type PreferenceChangeAction = 'add' | 'remove';
+
+/** A change of the dietary preferences the assistant proposed. */
+export interface PreferenceChange {
+  action: PreferenceChangeAction;
+  preferenceType: PreferenceType;
+  value: string;
+}
+
+/** What became of a change: applied now, or found in effect already (nothing written). */
+export type PreferenceChangeStatus = 'proposed' | 'applied' | 'already_applied';
+
+/** `POST /conversations/:id/preference-change/confirm`. */
+export interface PreferenceChangeResult {
+  status: PreferenceChangeStatus;
+  change: PreferenceChange;
+}
+
+/** The `data-preference-change` part: a change waiting for the user's yes. */
+export interface StreamedPreferenceChange {
+  change: PreferenceChange;
+}
+
+/** The `data-preferences-updated` part: a change the assistant applied. */
+export interface StreamedPreferencesUpdated {
+  change: PreferenceChange;
+}
+
 export interface Message {
   id: string;
   role: MessageRole;
@@ -373,6 +416,11 @@ export interface Message {
   /** The menu version the assistant suggested with this reply, and its menu. */
   menuVersionId: string | null;
   menuId: string | null;
+  /**
+   * The change of the dietary preferences the assistant proposed with this reply; applied only once
+   * confirmed, and only while this is the latest reply.
+   */
+  preferenceChange: PreferenceChange | null;
   createdAt: string;
 }
 

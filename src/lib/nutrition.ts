@@ -26,7 +26,13 @@ const PER_100G: Record<Macro, keyof NutritionLine['food']> = {
   carbsG: 'carbsG',
 };
 
-const round1 = (value: number): number => Math.round(value * 10) / 10;
+/** `round()` of the backend (`common/utils/decimal.ts`): EPSILON keeps 2.45 from landing on 2.4. */
+export function round(value: number, digits = 1): number {
+  const factor = 10 ** digits;
+  return Math.round((value + Number.EPSILON) * factor) / factor;
+}
+
+const round1 = (value: number): number => round(value);
 
 /**
  * Live preview in the recipe form, the same maths as the backend `NutritionService`:

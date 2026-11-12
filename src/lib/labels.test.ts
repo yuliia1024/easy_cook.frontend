@@ -1,4 +1,5 @@
 import {
+  ALLERGEN_LABELS,
   MENU_GENERATED_BY_LABELS,
   MEAL_TYPE_LABELS,
   PREFERENCE_TYPE_LABELS,
@@ -21,5 +22,22 @@ describe('menu and preference labels', () => {
       'excluded_ingredient',
       'disliked_food',
     ]);
+  });
+});
+
+describe('allergen labels', () => {
+  it('names every backend allergen in English', () => {
+    expect(Object.keys(ALLERGEN_LABELS)).toEqual([
+      'gluten',
+      'milk',
+      'egg',
+      'fish',
+      'shellfish',
+      'peanut',
+      'tree_nut',
+      'soy',
+      'sesame',
+    ]);
+    expect(ALLERGEN_LABELS.tree_nut).toBe('tree nuts');
   });
 });

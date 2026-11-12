@@ -11,7 +11,7 @@ export const foodKeys = {
 export function useFoods(query: FoodQuery, enabled = true) {
   return useQuery({
     queryKey: foodKeys.list(query),
-    queryFn: () => foodsApi.list(query),
+    queryFn: ({ signal }) => foodsApi.list(query, { signal }),
     placeholderData: keepPreviousData,
     enabled,
   });
@@ -20,7 +20,7 @@ export function useFoods(query: FoodQuery, enabled = true) {
 export function useFood(id: string | undefined) {
   return useQuery({
     queryKey: foodKeys.detail(id ?? ''),
-    queryFn: () => foodsApi.get(id!),
+    queryFn: ({ signal }) => foodsApi.get(id!, { signal }),
     enabled: Boolean(id),
   });
 }

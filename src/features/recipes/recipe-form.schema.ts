@@ -10,7 +10,7 @@ import {
   RECIPE_DESCRIPTION_MAX_LENGTH,
   RECIPE_INSTRUCTIONS_MAX_LENGTH,
 } from '../../lib/limits';
-import { servingLoad } from '../../lib/nutrition';
+import { round, servingLoad } from '../../lib/nutrition';
 
 const keys = <T extends string>(labels: Record<T, string>) => Object.keys(labels) as [T, ...T[]];
 
@@ -68,7 +68,9 @@ export const recipeFormSchema = z
   .superRefine((recipe, ctx) => {
     if (ctx.issues.length > 0) return;
     // A form-level error on the ingredient list, as the backend checks the whole recipe.
-    const { weightG, kcal } = servingLoad(recipe.ingredients, recipe.servings);
+    const { weightG, kcal: rawKcal } = servingLoad(recipe.ingredients, recipe.servings);
+    // The backend checks the per-serving kcal rounded to one decimal.
+    const kcal = round(rawKcal);
     if (weightG > MAX_SERVING_WEIGHT_G) {
       ctx.addIssue({
         code: 'custom',
@@ -79,7 +81,7 @@ export const recipeFormSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['ingredients'],
-        message: `One serving would have ${Math.round(kcal)} kcal; at most ${MAX_SERVING_KCAL} kcal`,
+        message: `One serving would have ${kcal} kcal; at most ${MAX_SERVING_KCAL} kcal`,
       });
     }
   });

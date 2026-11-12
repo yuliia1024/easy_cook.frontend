@@ -1,4 +1,5 @@
-export const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
+// `||`: an empty `VITE_API_URL=` in .env means the default too.
+export const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 /** The backend error body: `{ statusCode, message, error, path, timestamp }`. */
 interface ErrorBody {
@@ -37,22 +38,36 @@ export function toQueryString(params: QueryParams = {}): string {
   return query ? `?${query}` : '';
 }
 
-async function toApiError(response: Response): Promise<ApiError> {
-  let body: ErrorBody = {};
+const UNAVAILABLE = 'The server is unavailable. Check that the API is running.';
+
+/**
+ * Gateway statuses: the dev proxy answers 502 when the backend is down. A 503 is not here: the
+ * backend sends its own (database or assistant unavailable) with a JSON message worth showing.
+ */
+const GATEWAY_STATUSES = new Set([502, 504]);
+
+async function toApiError(response: Response, signal?: AbortSignal | null): Promise<ApiError> {
+  if (GATEWAY_STATUSES.has(response.status)) return new ApiError(0, UNAVAILABLE);
+  let body: ErrorBody | undefined;
   try {
     body = (await response.json()) as ErrorBody;
-  } catch {
+  } catch (error) {
+    // Cancelled while the body was read: the abort error, not a fake API error.
+    if (signal?.aborted) throw error;
     // Not JSON (proxy error page, empty body).
   }
-  const details = Array.isArray(body.message) ? body.message : [];
+  // A 5xx without the backend's JSON body (a 503 or 500 page, an empty body) comes from a proxy.
+  if (response.status >= 500 && (typeof body !== 'object' || body === null)) {
+    return new ApiError(0, UNAVAILABLE);
+  }
+  const errorBody: ErrorBody = body && typeof body === 'object' ? body : {};
+  const details = Array.isArray(errorBody.message) ? errorBody.message : [];
   const message =
-    typeof body.message === 'string'
-      ? body.message
-      : (body.error ?? response.statusText ?? 'Request failed');
+    typeof errorBody.message === 'string'
+      ? errorBody.message
+      : errorBody.error || response.statusText || 'Request failed';
   return new ApiError(response.status, message, details);
 }
-
-const UNAVAILABLE = 'The server is unavailable. Check that the API is running.';
 
 /** `fetch` for streamed endpoints: the same `ApiError`s as `request`, the body left unread. */
 export async function streamFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -63,26 +78,45 @@ export async function streamFetch(input: RequestInfo | URL, init?: RequestInit):
     if (init?.signal?.aborted) throw error;
     throw new ApiError(0, UNAVAILABLE);
   }
-  if (!response.ok) throw await toApiError(response);
+  if (!response.ok) throw await toApiError(response, init?.signal);
   return response;
 }
 
-export async function request<T>(
-  path: string,
-  init: { method?: string; body?: unknown; query?: QueryParams } = {},
-): Promise<T> {
+export interface RequestOptions {
+  method?: string;
+  body?: unknown;
+  query?: QueryParams;
+  /** Cancels the request (e.g. TanStack Query's `signal`); the abort error is rethrown as it is. */
+  signal?: AbortSignal;
+}
+
+/**
+ * What a read endpoint function takes last: `{ signal }`. TanStack Query's context fits it, so
+ * `queryFn: api.history` or `queryFn: (context) => api.get(id, context)` cancels the request.
+ */
+export type CallOptions = Pick<RequestOptions, 'signal'>;
+
+export async function request<T>(path: string, init: RequestOptions = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}${toQueryString(init.query)}`, {
       method: init.method ?? 'GET',
       headers: init.body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      signal: init.signal,
     });
-  } catch {
+  } catch (error) {
+    if (init.signal?.aborted) throw error;
     throw new ApiError(0, UNAVAILABLE);
   }
 
-  if (!response.ok) throw await toApiError(response);
+  if (!response.ok) throw await toApiError(response, init.signal);
   if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+  try {
+    return (await response.json()) as T;
+  } catch (error) {
+    if (init.signal?.aborted) throw error;
+    // An empty or non-JSON 2xx body (e.g. an HTML page served for the path).
+    throw new ApiError(response.status, 'The server sent an unexpected response.');
+  }
 }

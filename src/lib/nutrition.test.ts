@@ -6,6 +6,7 @@ import {
   isMacroShareAllowed,
   kcalFromMacros,
   macroShares,
+  round,
   servingLoad,
 } from './nutrition';
 
@@ -39,6 +40,23 @@ describe('estimateNutrition', () => {
     const result = estimateNutrition([{ food: rice, quantityG: Number.NaN, isOptional: false }], 0);
     expect(result.total.kcal).toBe(0);
     expect(result.perServing.kcal).toBe(0);
+  });
+});
+
+describe('round', () => {
+  it('rounds as the backend, past float noise', () => {
+    expect(round(2.4499999999999997)).toBe(2.5);
+    expect(round(1.005, 2)).toBe(1.01);
+    expect(round(2.44)).toBe(2.4);
+    expect(round(-2.46)).toBe(-2.5);
+  });
+
+  it('is used by the estimate', () => {
+    // 0.35 g per 100 g × 700 g = 2.4499999999999997 g.
+    const food = buildFood({ kcalPer100g: 1, proteinG: 0.35, fatG: 0, carbsG: 0 });
+    expect(estimateNutrition([{ food, quantityG: 700, isOptional: false }], 1).total.proteinG).toBe(
+      2.5,
+    );
   });
 });
 

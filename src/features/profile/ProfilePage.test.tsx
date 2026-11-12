@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react';
+import { delay } from 'msw';
 import type { NutritionGoal } from '../../api/types';
 import { formatNumber } from '../../lib/format';
 import { buildGoal, buildProfile } from '../../test/fixtures';
@@ -58,6 +59,8 @@ describe('ProfilePage', () => {
     expect(
       await screen.findByRole('heading', { name: 'Daily nutrition goals' }),
     ).toBeInTheDocument();
+    expect(await screen.findByRole('status')).toHaveTextContent('Profile saved.');
+    expect(screen.getByRole('button', { name: 'Save profile' })).toBeInTheDocument();
     expect(body).toEqual({
       age: 30,
       heightCm: 170,
@@ -350,5 +353,121 @@ describe('ProfilePage', () => {
     withProfileAndGoals({ current: null, history: [] });
     render();
     expect(await screen.findByRole('button', { name: 'Set as current goal' })).toBeInTheDocument();
+  });
+
+  it('says the profile was saved and keeps the saved values', async () => {
+    withProfileAndGoals();
+    server.use(
+      http.put(api('/profile'), async ({ request }) =>
+        HttpResponse.json(
+          buildProfile({
+            ...((await request.json()) as object),
+            updatedAt: '2026-11-01T10:00:00.000Z',
+          }),
+        ),
+      ),
+    );
+    const { user } = render();
+
+    const age = await screen.findByLabelText('Age, years');
+    await user.clear(age);
+    await user.type(age, '31');
+    await user.click(screen.getByRole('button', { name: 'Save profile' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Profile saved.');
+    expect(screen.getByLabelText('Age, years')).toHaveValue('31');
+
+    // Editing again hides the message until the next save.
+    await user.type(age, '0');
+    expect(screen.queryByText('Profile saved.')).not.toBeInTheDocument();
+  });
+
+  it('starts the manual goal from the current goal even when the history loads first', async () => {
+    withProfileAndGoals({
+      history: [buildGoal({ id: 'newest', calculationMode: 'manual', ruleVersion: null })],
+    });
+    server.use(
+      http.get(api('/nutrition/goals/current'), async () => {
+        await delay(150);
+        return HttpResponse.json(
+          buildGoal({ id: 'newest', calculationMode: 'manual', caloriesKcal: 1900, fatG: 52 }),
+        );
+      }),
+    );
+    render();
+
+    const form = await screen.findByRole('form', { name: 'Manual goal' });
+    expect(within(form).getByLabelText('Calories, kcal')).toHaveValue('1900');
+    expect(within(form).getByLabelText('Fat, g')).toHaveValue('52');
+    expect(screen.queryByRole('button', { name: 'Recalculate macros' })).not.toBeInTheDocument();
+  });
+
+  it('checks the manual goal against the sex of a profile saved meanwhile', async () => {
+    withProfileAndGoals();
+    let posted = false;
+    server.use(
+      http.put(api('/profile'), () => HttpResponse.json(buildProfile({ sex: 'male' }))),
+      http.post(api('/nutrition/goals'), () => {
+        posted = true;
+        return HttpResponse.json(buildGoal());
+      }),
+    );
+    const { user } = render();
+
+    await user.click(await screen.findByRole('button', { name: 'Manual' }));
+    expect(screen.getByText('At least 1200 kcal')).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Sex (for the formula)'), 'male');
+    await user.click(screen.getByRole('button', { name: 'Save profile' }));
+    expect(await screen.findByText('At least 1500 kcal')).toBeInTheDocument();
+
+    const kcal = screen.getByLabelText('Calories, kcal');
+    await user.clear(kcal);
+    await user.type(kcal, '1400');
+    await user.click(screen.getByRole('button', { name: 'Save manual goal' }));
+
+    await vi.waitFor(() => expect(kcal).toHaveAttribute('aria-invalid', 'true'));
+    expect(screen.getByText('At least 1500 kcal')).toHaveClass('text-red-600');
+    expect(posted).toBe(false);
+  });
+
+  it('shows why the macros could not be recalculated', async () => {
+    withProfileAndGoals();
+    server.use(
+      http.get(api('/nutrition/goals/preview'), ({ request }) =>
+        new URL(request.url).searchParams.has('caloriesKcal')
+          ? apiError(503, 'Database is unavailable')
+          : HttpResponse.json({ caloriesKcal: 2200, proteinG: 105, fatG: 61, carbsG: 307 }),
+      ),
+    );
+    const { user } = render();
+
+    await user.click(await screen.findByRole('button', { name: 'Manual' }));
+    const kcal = screen.getByLabelText('Calories, kcal');
+    await user.clear(kcal);
+    await user.type(kcal, '1500');
+    await user.click(screen.getByRole('button', { name: 'Recalculate macros' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Could not recalculate the macros');
+    expect(alert).toHaveTextContent('Database is unavailable');
+    expect(screen.getByLabelText('Protein, g')).toHaveValue('105');
+  });
+
+  it('shows a server rejection of the manual goal', async () => {
+    withProfileAndGoals();
+    server.use(
+      http.post(api('/nutrition/goals'), () =>
+        apiError(400, ['caloriesKcal must not be less than 1200']),
+      ),
+    );
+    const { user } = render();
+
+    await user.click(await screen.findByRole('button', { name: 'Manual' }));
+    await user.click(screen.getByRole('button', { name: 'Save manual goal' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Could not save the goal');
+    expect(alert).toHaveTextContent('caloriesKcal must not be less than 1200');
+    expect(screen.getByRole('form', { name: 'Manual goal' })).toBeInTheDocument();
   });
 });

@@ -1,5 +1,7 @@
 import { Link, useSearchParams } from 'react-router';
-import type { DietTag, MealType } from '../../api/types';
+import type { DietTag } from '../../api/types';
+import { Button } from '../../components/Button';
+import { AllergenList } from '../../components/AllergenList';
 import { buttonClass } from '../../components/button-class';
 import { EmptyState } from '../../components/EmptyState';
 import { MacroChips } from '../../components/MacroChips';
@@ -9,18 +11,16 @@ import { Pagination } from '../../components/Pagination';
 import { Spinner } from '../../components/Spinner';
 import { formatNumber } from '../../lib/format';
 import { DIET_TAG_LABELS, MEAL_TYPE_LABELS, toOptions } from '../../lib/labels';
-import { useDebouncedValue } from '../../lib/use-debounced-value';
+import { parseEnum, parseEnums, useSearchAndPage } from '../../lib/search-params';
 import { useRecipes } from './recipes.queries';
 
 const PAGE_LIMIT = 12;
 
 export function RecipesPage() {
   const [params, setParams] = useSearchParams();
-  const search = params.get('search') ?? '';
-  const mealType = (params.get('mealType') || undefined) as MealType | undefined;
-  const dietType = params.getAll('dietType') as DietTag[];
-  const page = Number(params.get('page')) || 1;
-  const debouncedSearch = useDebouncedValue(search.trim());
+  const { search, debouncedSearch, page } = useSearchAndPage();
+  const mealType = parseEnum(params.get('mealType'), MEAL_TYPE_LABELS);
+  const dietType = parseEnums(params.getAll('dietType'), DIET_TAG_LABELS);
 
   const recipes = useRecipes({
     search: debouncedSearch,
@@ -44,7 +44,7 @@ export function RecipesPage() {
 
   const toggleTag = (tag: DietTag): void =>
     update((next) => {
-      const tags = next.getAll('dietType');
+      const tags = parseEnums(next.getAll('dietType'), DIET_TAG_LABELS);
       next.delete('dietType');
       (tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag]).forEach((t) =>
         next.append('dietType', t),
@@ -72,8 +72,11 @@ export function RecipesPage() {
           aria-label="Search recipes"
           value={search}
           onChange={(event) =>
-            update((next) =>
-              event.target.value ? next.set('search', event.target.value) : next.delete('search'),
+            update(
+              (next) =>
+                event.target.value ? next.set('search', event.target.value) : next.delete('search'),
+              // A new search starts from page 1 once it is debounced (`useSearchAndPage`).
+              false,
             )
           }
         />
@@ -119,7 +122,20 @@ export function RecipesPage() {
       ) : recipes.isError ? (
         <ErrorAlert error={recipes.error} onRetry={() => void recipes.refetch()} />
       ) : recipes.data.items.length === 0 ? (
-        <EmptyState title="No recipes found">Change the filters or add a recipe.</EmptyState>
+        page > 1 ? (
+          <EmptyState
+            title="No recipes on this page"
+            action={
+              <Button variant="secondary" onClick={() => update(() => undefined)}>
+                Go to the first page
+              </Button>
+            }
+          >
+            The list is shorter now.
+          </EmptyState>
+        ) : (
+          <EmptyState title="No recipes found">Change the filters or add a recipe.</EmptyState>
+        )
       ) : (
         <>
           <ul
@@ -141,6 +157,7 @@ export function RecipesPage() {
                     {recipe.dietType.length > 0 &&
                       ` · ${recipe.dietType.map((t) => DIET_TAG_LABELS[t]).join(', ')}`}
                   </span>
+                  <AllergenList allergens={recipe.allergens} label="Contains" />
                   <span className="mt-auto flex flex-wrap items-center gap-1.5 pt-2 tabular-nums">
                     <b className="text-lg">{formatNumber(recipe.nutritionPerServing.kcal)}</b>{' '}
                     <span className="mr-1 text-xs text-sage-500">kcal</span>

@@ -49,7 +49,9 @@ export function ProfilePage() {
                 The profile is not filled in yet. Goals cannot be calculated without it.
               </p>
             )}
-            <ProfileForm key={profile.data?.updatedAt ?? 'new'} profile={profile.data} />
+            {/* Not keyed by the saved data: a remount after a save would drop "Profile saved.";
+                the form follows newer profile data itself. */}
+            <ProfileForm profile={profile.data} />
           </>
         )}
       </section>
@@ -132,8 +134,12 @@ function GoalsSection({ sex }: { sex: Sex }) {
           <Spinner />
         ) : mode === 'rules' ? (
           <RuleBasedGoal />
+        ) : current.isPending ? (
+          // The form starts from the current goal: wait for it.
+          <Spinner />
         ) : (
           <ManualGoalForm
+            key={current.data?.id ?? 'none'}
             current={current.data ?? null}
             sex={sex}
             // The saved goal is now the newest one: follow the history again.

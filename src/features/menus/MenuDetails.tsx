@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router';
+import { ApiError } from '../../api/http';
 import type { Macro, Menu, MenuDay, MenuIssue, MenuMeal, MenuVersion } from '../../api/types';
 import { Button } from '../../components/Button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -16,6 +17,7 @@ import { MEAL_TYPE_LABELS, MENU_GENERATED_BY_LABELS } from '../../lib/labels';
 import { RecipeDialog } from '../recipes/RecipeDialog';
 import { menuTitleSchema, type MenuTitleOutput, type MenuTitleValues } from './menu-title.schema';
 import { useConfirmMenuVersion, useDeleteMenu, useMenu, useRenameMenu } from './menus.queries';
+import { shownVersion } from './shown-version';
 
 const MEAL_MACROS: Macro[] = ['kcal', 'proteinG', 'fatG', 'carbsG'];
 
@@ -25,27 +27,45 @@ const dayDate = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone
 export function MenuDetails({ id }: { id: string }) {
   const menu = useMenu(id);
 
-  if (menu.isPending) return <Spinner />;
+  // A failed background refetch keeps the loaded menu on screen, with the error above it, unless
+  // the menu is gone.
+  const gone = menu.error instanceof ApiError && menu.error.isNotFound;
+  if (menu.data && !gone)
+    return (
+      <>
+        {menu.isError && (
+          <div className="mb-4">
+            <ErrorAlert
+              error={menu.error}
+              title="Could not refresh the menu"
+              onRetry={() => void menu.refetch()}
+            />
+          </div>
+        )}
+        <MenuView menu={menu.data} />
+      </>
+    );
   if (menu.isError) return <ErrorAlert error={menu.error} onRetry={() => void menu.refetch()} />;
-  return <MenuView menu={menu.data} />;
+  return <Spinner />;
 }
 
 function MenuView({ menu }: { menu: Menu }) {
   const navigate = useNavigate();
-  // `?version=<number>` picks the shown version (the side list links to it); the newest by default.
+  // `?version=<number>` picks the shown version (the side list links to it).
   const [params, setParams] = useSearchParams();
-  const requested = Number(params.get('version'));
-  const version = menu.versions.find((v) => v.versionNumber === requested) ?? menu.versions[0];
+  const version = shownVersion(menu.versions, params.get('version'));
   const rename = useRenameMenu(menu.id);
-  const remove = useDeleteMenu();
+  // Away from the menu before it leaves the cache: refetching it here would end in a 404.
+  const remove = useDeleteMenu({ onDeleted: () => navigate('/menus') });
   const confirm = useConfirmMenuVersion(menu.id);
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const failed = [rename, remove, confirm].find((mutation) => mutation.isError);
+  // A rename error shows in its form.
+  const failed = [remove, confirm].find((mutation) => mutation.isError);
 
   const onDelete = (): void => {
     setDeleting(false);
-    remove.mutate(menu.id, { onSuccess: () => navigate('/menus') });
+    remove.mutate(menu.id);
   };
 
   return (
@@ -56,7 +76,10 @@ function MenuView({ menu }: { menu: Menu }) {
           <>
             <Button
               variant="secondary"
-              onClick={() => setRenaming(true)}
+              onClick={() => {
+                rename.reset();
+                setRenaming(true);
+              }}
               disabled={renaming}
               loading={rename.isPending}
             >
@@ -76,11 +99,17 @@ function MenuView({ menu }: { menu: Menu }) {
       {renaming && (
         <RenameForm
           title={menu.title}
+          saving={rename.isPending}
+          error={rename.isError ? rename.error : null}
           onSave={(title) => {
-            setRenaming(false);
-            if (title !== menu.title) rename.mutate(title);
+            // Closed only once saved: a rejected title stays in the form with the error.
+            if (title === menu.title) setRenaming(false);
+            else rename.mutate(title, { onSuccess: () => setRenaming(false) });
           }}
-          onCancel={() => setRenaming(false)}
+          onCancel={() => {
+            rename.reset();
+            setRenaming(false);
+          }}
         />
       )}
       {deleting && (
@@ -135,10 +164,14 @@ function MenuView({ menu }: { menu: Menu }) {
 
 function RenameForm({
   title,
+  saving,
+  error,
   onSave,
   onCancel,
 }: {
   title: string;
+  saving: boolean;
+  error: Error | null;
   onSave: (title: string) => void;
   onCancel: () => void;
 }) {
@@ -174,11 +207,18 @@ function RenameForm({
         />
       </Field>
       <div className="flex gap-2 sm:pt-6.5">
-        <Button type="submit">Save</Button>
+        <Button type="submit" loading={saving}>
+          Save
+        </Button>
         <Button variant="secondary" onClick={onCancel}>
           Cancel
         </Button>
       </div>
+      {error && (
+        <div className="w-full">
+          <ErrorAlert error={error} title="Could not rename the menu" />
+        </div>
+      )}
     </form>
   );
 }

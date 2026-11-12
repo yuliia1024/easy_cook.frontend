@@ -29,7 +29,10 @@ const nullOn404 = async <T>(load: () => Promise<T>): Promise<T | null> => {
 };
 
 export function useProfile() {
-  return useQuery({ queryKey: profileKeys.profile, queryFn: () => nullOn404(profileApi.get) });
+  return useQuery({
+    queryKey: profileKeys.profile,
+    queryFn: ({ signal }) => nullOn404(() => profileApi.get({ signal })),
+  });
 }
 
 export function useSaveProfile() {
@@ -50,19 +53,23 @@ export function useSaveProfile() {
 export function useCurrentGoal(enabled: boolean) {
   return useQuery({
     queryKey: profileKeys.currentGoal,
-    queryFn: () => nullOn404(nutritionGoalsApi.current),
+    queryFn: ({ signal }) => nullOn404(() => nutritionGoalsApi.current({ signal })),
     enabled,
   });
 }
 
 export function useGoalHistory(enabled: boolean) {
-  return useQuery({ queryKey: profileKeys.history, queryFn: nutritionGoalsApi.history, enabled });
+  return useQuery({
+    queryKey: profileKeys.history,
+    queryFn: ({ signal }) => nutritionGoalsApi.history({ signal }),
+    enabled,
+  });
 }
 
 export function useGoalPreview(enabled: boolean) {
   return useQuery({
     queryKey: profileKeys.preview,
-    queryFn: () => nutritionGoalsApi.preview(),
+    queryFn: ({ signal }) => nutritionGoalsApi.preview(undefined, { signal }),
     enabled,
   });
 }

@@ -7,6 +7,8 @@ import { ChevronIcon } from '../../components/icons';
 import { Spinner } from '../../components/Spinner';
 import { formatDate } from '../../lib/format';
 import { MENU_STATUS_LABELS } from '../../lib/labels';
+import { useMenu } from './menus.queries';
+import { shownVersion } from './shown-version';
 
 /** How many menus a group shows before "Show all". */
 export const MENU_GROUP_LIMIT = 5;
@@ -109,11 +111,15 @@ function MenuItem({
 }) {
   const versionsId = useId();
   const [params] = useSearchParams();
-  const hasVersions = !menu.confirmedVersionId && menu.versionCount > 1;
-  // Null until toggled: the open draft shows its versions on its own.
+  // A confirmed menu gets new versions too (the assistant revises it).
+  const hasVersions = menu.versionCount > 1;
+  // Null until toggled: the open menu shows its versions on its own.
   const [openChoice, setOpenChoice] = useState<boolean | null>(null);
   const open = hasVersions && (openChoice ?? selected);
-  const shownVersion = selected ? Number(params.get('version')) || menu.versionCount : null;
+  // The open menu is loaded for its details already; its shown version is the one they show.
+  const details = useMenu(selected && hasVersions ? menu.id : undefined);
+  const shown = details.data ? shownVersion(details.data.versions, params.get('version')) : null;
+  const confirmedNumber = details.data?.versions.find((v) => v.isConfirmed)?.versionNumber;
 
   return (
     <div
@@ -162,11 +168,12 @@ function MenuItem({
             <li key={n}>
               <Link
                 to={`/menus/${menu.id}?version=${n}`}
-                aria-current={shownVersion === n ? 'true' : undefined}
-                className={`block rounded-lg px-3 py-1.5 text-xs ${shownVersion === n ? 'bg-white font-semibold text-brand-800' : 'text-sage-600 hover:bg-white'}`}
+                aria-current={shown?.versionNumber === n ? 'true' : undefined}
+                className={`block rounded-lg px-3 py-1.5 text-xs ${shown?.versionNumber === n ? 'bg-white font-semibold text-brand-800' : 'text-sage-600 hover:bg-white'}`}
               >
                 Version {n}
                 {n === menu.versionCount && <span className="text-sage-500"> · latest</span>}
+                {n === confirmedNumber && <span className="text-sage-500"> · confirmed</span>}
               </Link>
             </li>
           ))}

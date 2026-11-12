@@ -1,4 +1,5 @@
-import { screen, within } from '@testing-library/react';
+import { focusManager } from '@tanstack/react-query';
+import { act, screen, within } from '@testing-library/react';
 import {
   buildMenu,
   buildMenuMeal,
@@ -184,5 +185,109 @@ describe('MenuDetails', () => {
     server.use(http.get(api(`/menus/${MENU_ID}`), () => apiError(404, 'Menu not found')));
     render();
     expect(await screen.findByRole('alert')).toHaveTextContent('Menu not found');
+  });
+
+  it('opens the confirmed version when the menu has newer drafts', async () => {
+    server.use(
+      http.get(api(`/menus/${MENU_ID}`), () =>
+        HttpResponse.json(
+          buildMenu({
+            confirmedVersionId: 'v1',
+            confirmedAt: '2026-10-21T10:00:00.000Z',
+            versions: [
+              buildMenuVersion({ id: 'v2', versionNumber: 2, notes: 'A newer draft' }),
+              buildMenuVersion({
+                id: 'v1',
+                versionNumber: 1,
+                isConfirmed: true,
+                notes: 'The confirmed one',
+              }),
+            ],
+          }),
+        ),
+      ),
+    );
+    render();
+
+    expect(await screen.findByText('The confirmed one')).toBeInTheDocument();
+    expect(screen.getByRole('combobox')).toHaveValue('v1');
+    expect(screen.getByRole('button', { name: 'Confirmed' })).toBeDisabled();
+  });
+
+  it('keeps the typed title and shows why a rename was rejected', async () => {
+    server.use(
+      http.get(api(`/menus/${MENU_ID}`), () => HttpResponse.json(buildMenu())),
+      http.patch(api(`/menus/${MENU_ID}`), () => apiError(409, 'A menu with this title exists')),
+    );
+    const { user } = render();
+
+    await user.click(await screen.findByRole('button', { name: 'Rename' }));
+    const title = screen.getByLabelText('Menu title');
+    await user.clear(title);
+    await user.type(title, 'Week 43');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    const form = screen.getByRole('form', { name: 'Rename the menu' });
+    expect(await within(form).findByRole('alert')).toHaveTextContent(
+      'A menu with this title exists',
+    );
+    expect(screen.getByLabelText('Menu title')).toHaveValue('Week 43');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(buildMenu().title);
+
+    // Cancelling drops the error with the form.
+    await user.click(within(form).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('keeps the menu on screen when a refresh fails', async () => {
+    let calls = 0;
+    server.use(
+      http.get(api(`/menus/${MENU_ID}`), () => {
+        calls += 1;
+        return calls === 1 ? HttpResponse.json(buildMenu()) : apiError(500, 'Server is down');
+      }),
+    );
+    render();
+
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(buildMenu().title);
+    try {
+      // Coming back to the tab refetches the menu.
+      act(() => {
+        focusManager.setFocused(false);
+        focusManager.setFocused(true);
+      });
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Could not refresh the menu');
+      expect(screen.getByRole('alert')).toHaveTextContent('Server is down');
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(buildMenu().title);
+      expect(screen.getByRole('region', { name: 'Day 1 · 20 Oct 2026' })).toBeInTheDocument();
+    } finally {
+      focusManager.setFocused(undefined);
+    }
+  });
+
+  it('stops showing a menu that is gone', async () => {
+    let calls = 0;
+    server.use(
+      http.get(api(`/menus/${MENU_ID}`), () => {
+        calls += 1;
+        return calls === 1 ? HttpResponse.json(buildMenu()) : apiError(404, 'Menu not found');
+      }),
+    );
+    render();
+
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(buildMenu().title);
+    try {
+      act(() => {
+        focusManager.setFocused(false);
+        focusManager.setFocused(true);
+      });
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Menu not found');
+      expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+    } finally {
+      focusManager.setFocused(undefined);
+    }
   });
 });

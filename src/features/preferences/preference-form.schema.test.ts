@@ -30,4 +30,12 @@ describe('preferenceFormSchema', () => {
       'At most 120 characters',
     );
   });
+
+  it('ignores the hidden text of a diet', () => {
+    const result = parse({ preferenceType: 'diet', diet: 'vegan', value: 'x'.repeat(121) });
+    expect(result.success && toPreferenceInput(result.data)).toEqual({
+      preferenceType: 'diet',
+      value: 'vegan',
+    });
+  });
 });

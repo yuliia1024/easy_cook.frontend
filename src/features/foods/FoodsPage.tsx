@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from 'react-router';
-import type { FoodSource, FoodState } from '../../api/types';
+import { Button } from '../../components/Button';
 import { buttonClass } from '../../components/button-class';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorAlert } from '../../components/ErrorAlert';
@@ -8,18 +8,16 @@ import { Pagination } from '../../components/Pagination';
 import { Spinner } from '../../components/Spinner';
 import { formatNumber } from '../../lib/format';
 import { FOOD_SOURCE_LABELS, FOOD_STATE_LABELS, toOptions } from '../../lib/labels';
-import { useDebouncedValue } from '../../lib/use-debounced-value';
+import { parseEnum, useSearchAndPage } from '../../lib/search-params';
 import { useFoods } from './foods.queries';
 
 const PAGE_LIMIT = 20;
 
 export function FoodsPage() {
   const [params, setParams] = useSearchParams();
-  const search = params.get('search') ?? '';
-  const state = (params.get('state') || undefined) as FoodState | undefined;
-  const source = (params.get('source') || undefined) as FoodSource | undefined;
-  const page = Number(params.get('page')) || 1;
-  const debouncedSearch = useDebouncedValue(search.trim());
+  const { search, debouncedSearch, page } = useSearchAndPage();
+  const state = parseEnum(params.get('state'), FOOD_STATE_LABELS);
+  const source = parseEnum(params.get('source'), FOOD_SOURCE_LABELS);
 
   const foods = useFoods({ search: debouncedSearch, state, source, page, limit: PAGE_LIMIT });
 
@@ -29,7 +27,8 @@ export function FoodsPage() {
         const next = new URLSearchParams(prev);
         if (value) next.set(key, value);
         else next.delete(key);
-        if (key !== 'page') next.delete('page');
+        // A new search starts from page 1 once it is debounced (`useSearchAndPage`).
+        if (key !== 'page' && key !== 'search') next.delete('page');
         return next;
       },
       { replace: true },
@@ -92,7 +91,20 @@ export function FoodsPage() {
       ) : foods.isError ? (
         <ErrorAlert error={foods.error} onRetry={() => void foods.refetch()} />
       ) : foods.data.items.length === 0 ? (
-        <EmptyState title="Nothing found">Change the search or add a food.</EmptyState>
+        page > 1 ? (
+          <EmptyState
+            title="No foods on this page"
+            action={
+              <Button variant="secondary" onClick={() => setParam('page', '')}>
+                Go to the first page
+              </Button>
+            }
+          >
+            The list is shorter now.
+          </EmptyState>
+        ) : (
+          <EmptyState title="Nothing found">Change the search or add a food.</EmptyState>
+        )
       ) : (
         <>
           <div

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { Button } from './Button';
+import { handleDialogKeyDown, openDialog } from './dialog-stack';
 import { TrashIcon } from './icons';
 
 interface Props {
@@ -12,7 +13,7 @@ interface Props {
 
 /**
  * A modal question about a destructive action. Focus starts on Cancel and stays inside;
- * Escape or a click outside cancels.
+ * Escape or a click outside cancels. Over another dialog only the top one reacts.
  */
 export function ConfirmDialog({ title, children, confirmLabel, onConfirm, onCancel }: Props) {
   const id = useId();
@@ -29,19 +30,15 @@ export function ConfirmDialog({ title, children, confirmLabel, onConfirm, onCanc
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     cancelRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onCancelRef.current();
-      if (event.key !== 'Tab' || !dialogRef.current) return;
-      const buttons = [...dialogRef.current.querySelectorAll('button')];
-      const edge = event.shiftKey ? buttons[0] : buttons[buttons.length - 1];
-      if (document.activeElement === edge || !dialogRef.current.contains(document.activeElement)) {
-        event.preventDefault();
-        (event.shiftKey ? buttons[buttons.length - 1] : buttons[0])?.focus();
-      }
-    };
+    const dialog = openDialog();
+    const onKeyDown = (event: KeyboardEvent): void =>
+      handleDialogKeyDown(event, dialogRef.current, dialog.isTopmost(), () =>
+        onCancelRef.current(),
+      );
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      dialog.close();
       if (previous?.isConnected) previous.focus();
     };
   }, []);

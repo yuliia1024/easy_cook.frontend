@@ -28,8 +28,9 @@ describe('SuggestedMenuDays', () => {
       .getAllByRole('listitem')
       .map((meal) => meal.textContent);
     expect(meals).toEqual([
-      'BreakfastOatmeal1 serving302.8 kcalP 11.2 gF 5.9 gC 53.8 g',
-      'LunchRice bowl1 serving520 kcalP 10.8 gF 1.2 gC 112 g',
+      // The chips read the full nutrient names out (`MacroChips`).
+      'BreakfastOatmeal1 serving302.8 kcalPProtein 11.2 gFFat 5.9 gCCarbs 53.8 g',
+      'LunchRice bowl1 serving520 kcalPProtein 10.8 gFFat 1.2 gCCarbs 112 g',
     ]);
     expect(day).toHaveTextContent('Day 1 total822.8 kcalProtein 22 gFat 7.1 gCarbs 165.8 g');
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
