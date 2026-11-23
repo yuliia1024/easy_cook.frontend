@@ -9,7 +9,7 @@ describe('routes', () => {
     server.use(http.get(api('/conversations'), () => HttpResponse.json([])));
     const { router } = renderRoutes(routes, '/');
 
-    expect(await screen.findByRole('heading', { name: 'Chat', level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'New conversation', level: 1 })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/chat');
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     expect(
@@ -29,12 +29,12 @@ describe('routes', () => {
 
     await user.click(screen.getByRole('link', { name: 'Easy Cook' }));
 
-    expect(await screen.findByRole('heading', { name: 'Chat', level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'New conversation', level: 1 })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/chat');
   });
 
   it.each([
-    ['/chat', 'Chat'],
+    ['/chat', 'New conversation'],
     ['/preferences', 'Dietary preferences'],
   ])('opens %s', async (path, heading) => {
     server.use(

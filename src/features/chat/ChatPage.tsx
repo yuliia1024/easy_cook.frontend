@@ -1,13 +1,15 @@
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
-import { Link, NavLink, useNavigate, useParams } from 'react-router';
+import { Link, NavLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import type {
   Conversation,
   ConversationSummary,
@@ -16,6 +18,7 @@ import type {
   SuggestedMenu,
 } from '../../api/types';
 import { Button } from '../../components/Button';
+import { buttonClass } from '../../components/button-class';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { EmptyState } from '../../components/EmptyState';
 import { ApiError } from '../../api/http';
@@ -37,6 +40,7 @@ import {
   useCreateConversation,
   useDeleteConversation,
 } from './chat.queries';
+import { queueFirstMessage, takeFirstMessage } from './first-message';
 import { MenuSkeleton } from './MenuSkeleton';
 import { isInEffect, preferenceChangeText, sameChange } from './preference-change';
 import { toSuggestedMenu } from './suggested-menu';
@@ -52,9 +56,14 @@ const SUBTITLE = 'Ask the AI assistant about meals, recipes and menus';
 
 const isNotFound = (error: unknown): boolean => error instanceof ApiError && error.isNotFound;
 
-/** `/chat` and `/chat/:id`. */
+/**
+ * `/chat/:id`, and `/chat`: a new conversation, created only once its first message is sent.
+ * `/chat?from=<id>` carries the menu details and the menu of that conversation to the new one.
+ */
 export function ChatPage() {
   const { id } = useParams();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   return (
     <div className="grid gap-6 lg:grid-cols-[290px_1fr]">
@@ -62,13 +71,8 @@ export function ChatPage() {
       {id ? (
         <ConversationView id={id} />
       ) : (
-        <ChatPanel title="Chat">
-          <div className="m-auto p-7">
-            <EmptyState title="No conversation selected">
-              Start a new one or pick one from the list.
-            </EmptyState>
-          </div>
-        </ChatPanel>
+        // "New conversation" on the new conversation clears it.
+        <NewConversation key={location.key} fromConversationId={searchParams.get('from')} />
       )}
     </div>
   );
@@ -77,10 +81,9 @@ export function ChatPage() {
 function ConversationList({ activeId }: { activeId?: string }) {
   const navigate = useNavigate();
   const conversations = useConversations();
-  const create = useCreateConversation();
   const remove = useDeleteConversation();
   const [deleting, setDeleting] = useState<ConversationSummary | null>(null);
-  const newButtonRef = useRef<HTMLButtonElement>(null);
+  const newButtonRef = useRef<HTMLAnchorElement>(null);
 
   const onDelete = (id: string): void => {
     setDeleting(null);
@@ -95,18 +98,14 @@ function ConversationList({ activeId }: { activeId?: string }) {
 
   return (
     <nav aria-label="Conversations" className="flex flex-col gap-3">
-      <Button
+      <Link
         ref={newButtonRef}
-        className="h-11.5 w-full rounded-[14px]"
-        loading={create.isPending}
-        onClick={() =>
-          create.mutate({}, { onSuccess: (created) => navigate(`/chat/${created.id}`) })
-        }
+        to="/chat"
+        className={`${buttonClass()} h-11.5 w-full rounded-[14px]`}
       >
-        {!create.isPending && <PlusIcon />}
+        <PlusIcon />
         New conversation
-      </Button>
-      {create.isError && <ErrorAlert error={create.error} title="Could not start a conversation" />}
+      </Link>
       {remove.isError && <ErrorAlert error={remove.error} title="Could not delete" />}
       <h2 className="caption px-1.5 pt-3 text-xs">Recent</h2>
       {conversations.isPending ? (
@@ -181,6 +180,168 @@ function ChatPanel({
   );
 }
 
+/**
+ * A conversation that does not exist yet: sending the first message creates it and opens it,
+ * and it sends the message from there (`first-message`).
+ */
+function NewConversation({ fromConversationId }: { fromConversationId: string | null }) {
+  const navigate = useNavigate();
+  const create = useCreateConversation();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [draft, setDraft] = useState('');
+
+  const send = (text: string = draft): void => {
+    const message = text.trim();
+    if (!message || text.length > MESSAGE_MAX_LENGTH || create.isPending) return;
+    create.mutate(fromConversationId ? { fromConversationId } : {}, {
+      onSuccess: (created) => {
+        queueFirstMessage(created.id, message);
+        navigate(`/chat/${created.id}`);
+      },
+    });
+  };
+
+  return (
+    <ChatPanel title="New conversation">
+      <div className="flex flex-1 flex-col gap-4 bg-sage-25 p-5 sm:p-7">
+        <div className="m-auto">
+          <EmptyState title="No messages yet">
+            Write a message or try one of the suggestions below.
+          </EmptyState>
+        </div>
+        {create.isError && (
+          <ErrorAlert error={create.error} title="Could not start a conversation" />
+        )}
+      </div>
+      <Composer
+        draft={draft}
+        onDraftChange={setDraft}
+        onSend={send}
+        textareaRef={textareaRef}
+        busy={create.isPending}
+        suggestions
+        notice={
+          fromConversationId && (
+            <p role="status" className="text-sm text-sage-600">
+              Your menu details carry over from the previous conversation.
+            </p>
+          )
+        }
+      />
+    </ChatPanel>
+  );
+}
+
+/** The message box with Send (Stop while a reply streams) and, for an empty conversation, suggestions. */
+function Composer({
+  draft,
+  onDraftChange,
+  onSend,
+  textareaRef,
+  busy,
+  closed = false,
+  suggestions,
+  onStop,
+  notice,
+}: {
+  draft: string;
+  onDraftChange: (draft: string) => void;
+  /** Sends `text`: the draft unless a suggestion is given. */
+  onSend: (text?: string) => void;
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  /** A message is on its way: no other one can be sent. */
+  busy: boolean;
+  /** The conversation takes no more messages. */
+  closed?: boolean;
+  suggestions: boolean;
+  /** Set while the reply streams: Stop takes the place of Send. */
+  onStop?: () => void;
+  notice?: ReactNode;
+}) {
+  const content = draft.trim();
+  const tooLong = draft.length > MESSAGE_MAX_LENGTH;
+
+  const onSubmit = (event: FormEvent): void => {
+    event.preventDefault();
+    onSend();
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      onSend();
+    }
+  };
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="flex flex-col gap-3 border-t border-sage-100 bg-white px-5 pt-4 pb-5.5 sm:px-7"
+    >
+      {notice}
+      {suggestions && (
+        <ul aria-label="Suggestions" className="flex flex-wrap gap-2">
+          {SUGGESTIONS.map((suggestion) => (
+            <li key={suggestion}>
+              <Button variant="chip" disabled={busy} onClick={() => onSend(suggestion)}>
+                {suggestion}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div
+        className={`flex items-end gap-2.5 rounded-[18px] border bg-sage-25 py-2.5 pr-2.5 pl-4.5 focus-within:ring-2 ${tooLong ? 'border-red-500 focus-within:ring-red-500/20' : 'border-sage-300 focus-within:border-brand-600 focus-within:ring-brand-600/20'}`}
+      >
+        <label htmlFor="message" className="sr-only">
+          Message
+        </label>
+        <textarea
+          ref={textareaRef}
+          id="message"
+          rows={2}
+          className="min-w-0 flex-1 resize-none bg-transparent py-1.5 text-[15px] outline-none placeholder:text-sage-500"
+          placeholder="Type a message. Enter sends, Shift+Enter adds a line."
+          value={draft}
+          disabled={closed}
+          aria-invalid={tooLong || undefined}
+          aria-describedby="message-msg"
+          onChange={(event) => onDraftChange(event.target.value)}
+          onKeyDown={onKeyDown}
+        />
+        <p
+          id="message-msg"
+          className={`shrink-0 pb-3 text-xs tabular-nums ${tooLong ? 'text-red-600' : 'text-sage-500'}`}
+        >
+          {draft.length} / {MESSAGE_MAX_LENGTH}
+        </p>
+        {onStop ? (
+          <Button
+            variant="icon"
+            aria-label="Stop"
+            onClick={() => {
+              onStop();
+              // The Stop button goes away with the reply.
+              textareaRef.current?.focus();
+            }}
+          >
+            <StopIcon />
+          </Button>
+        ) : (
+          <Button
+            variant="icon"
+            type="submit"
+            aria-label="Send"
+            disabled={!content || tooLong || closed || busy}
+          >
+            <SendIcon size={18} />
+          </Button>
+        )}
+      </div>
+    </form>
+  );
+}
+
 function ConversationView({ id }: { id: string }) {
   const conversation = useConversation(id);
 
@@ -229,8 +390,6 @@ function Messages({
   const [typing, setTyping] = useState(0);
   const onTyping = useCallback((delta: number) => setTyping((count) => count + delta), []);
   const [draft, setDraft] = useState('');
-  const content = draft.trim();
-  const tooLong = draft.length > MESSAGE_MAX_LENGTH;
   const saved = conversation.messages.length;
   // The streamed reply shows up once it has text or a menu; until then its progress does.
   const pending = reply.pending.filter(
@@ -264,17 +423,16 @@ function Messages({
     if (!(await reply.send(message))) setDraft(text);
   };
 
-  const onSubmit = (event: FormEvent): void => {
-    event.preventDefault();
-    void submit();
-  };
-
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      void submit();
-    }
-  };
+  // The message the conversation was started with (`NewConversation`).
+  const sendFirstMessage = useEffectEvent(() => {
+    const first = takeFirstMessage(conversation.id);
+    if (first) void submit(first);
+  });
+  useEffect(() => {
+    // After a tick: the trial unmount of StrictMode would stop a reply already under way.
+    const timer = setTimeout(sendFirstMessage);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <ChatPanel
@@ -330,77 +488,25 @@ function Messages({
         )}
       </div>
 
-      <form
-        onSubmit={onSubmit}
-        className="flex flex-col gap-3 border-t border-sage-100 bg-white px-5 pt-4 pb-5.5 sm:px-7"
-      >
-        {(full || sentByUser >= CONVERSATION_LONG_USER_MESSAGES) && (
-          <LongConversationNotice conversationId={conversation.id} full={full} sent={sentByUser} />
-        )}
-        {messages.length === 0 && (
-          <ul aria-label="Suggestions" className="flex flex-wrap gap-2">
-            {SUGGESTIONS.map((suggestion) => (
-              <li key={suggestion}>
-                <Button
-                  variant="chip"
-                  disabled={reply.isSending}
-                  onClick={() => void submit(suggestion)}
-                >
-                  {suggestion}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div
-          className={`flex items-end gap-2.5 rounded-[18px] border bg-sage-25 py-2.5 pr-2.5 pl-4.5 focus-within:ring-2 ${tooLong ? 'border-red-500 focus-within:ring-red-500/20' : 'border-sage-300 focus-within:border-brand-600 focus-within:ring-brand-600/20'}`}
-        >
-          <label htmlFor="message" className="sr-only">
-            Message
-          </label>
-          <textarea
-            ref={textareaRef}
-            id="message"
-            rows={2}
-            className="min-w-0 flex-1 resize-none bg-transparent py-1.5 text-[15px] outline-none placeholder:text-sage-500"
-            placeholder="Type a message. Enter sends, Shift+Enter adds a line."
-            value={draft}
-            disabled={full}
-            aria-invalid={tooLong || undefined}
-            aria-describedby="message-msg"
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={onKeyDown}
-          />
-          <p
-            id="message-msg"
-            className={`shrink-0 pb-3 text-xs tabular-nums ${tooLong ? 'text-red-600' : 'text-sage-500'}`}
-          >
-            {draft.length} / {MESSAGE_MAX_LENGTH}
-          </p>
-          {reply.isStreaming ? (
-            <Button
-              variant="icon"
-              aria-label="Stop"
-              onClick={() => {
-                reply.stop();
-                // The Stop button goes away with the reply.
-                textareaRef.current?.focus();
-              }}
-            >
-              <StopIcon />
-            </Button>
-          ) : (
-            <Button
-              variant="icon"
-              type="submit"
-              aria-label="Send"
-              disabled={!content || tooLong || full || reply.isSending}
-            >
-              <SendIcon size={18} />
-            </Button>
-          )}
-        </div>
-      </form>
+      <Composer
+        draft={draft}
+        onDraftChange={setDraft}
+        onSend={(text) => void submit(text)}
+        textareaRef={textareaRef}
+        busy={reply.isSending}
+        closed={full}
+        suggestions={messages.length === 0}
+        onStop={reply.isStreaming ? reply.stop : undefined}
+        notice={
+          (full || sentByUser >= CONVERSATION_LONG_USER_MESSAGES) && (
+            <LongConversationNotice
+              conversationId={conversation.id}
+              full={full}
+              sent={sentByUser}
+            />
+          )
+        }
+      />
     </ChatPanel>
   );
 }
@@ -418,8 +524,6 @@ function LongConversationNotice({
   full: boolean;
   sent: number;
 }) {
-  const navigate = useNavigate();
-  const create = useCreateConversation();
   const left = Math.max(CONVERSATION_MAX_USER_MESSAGES - sent, 0);
 
   return (
@@ -438,23 +542,12 @@ function LongConversationNotice({
           Your menu details carry over.
         </p>
       </div>
-      <Button
-        variant={full ? 'primary' : 'secondary'}
-        loading={create.isPending}
-        onClick={() =>
-          create.mutate(
-            { fromConversationId: conversationId },
-            { onSuccess: (created) => navigate(`/chat/${created.id}`) },
-          )
-        }
+      <Link
+        to={`/chat?from=${encodeURIComponent(conversationId)}`}
+        className={buttonClass(full ? 'primary' : 'secondary')}
       >
         Start a new conversation
-      </Button>
-      {create.isError && (
-        <div className="w-full">
-          <ErrorAlert error={create.error} title="Could not start a conversation" />
-        </div>
-      )}
+      </Link>
     </div>
   );
 }

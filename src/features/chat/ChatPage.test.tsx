@@ -44,30 +44,121 @@ const routes = [
 ];
 
 describe('ChatPage', () => {
-  it('starts a new conversation', async () => {
+  /** A conversation the first message creates, answered with `reply`. */
+  const answeringNewConversation = (reply: string) => {
+    const requests = { created: [] as unknown[], sent: [] as unknown[] };
     server.use(
-      http.get(api('/conversations'), () => HttpResponse.json([])),
-      http.post(api('/conversations'), () => HttpResponse.json(buildConversation())),
+      http.post(api('/conversations'), async ({ request }) => {
+        requests.created.push(await request.json());
+        return HttpResponse.json(buildConversation());
+      }),
       http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
-        HttpResponse.json(buildConversation()),
+        HttpResponse.json(
+          buildConversation({
+            messages:
+              requests.sent.length > 0
+                ? [
+                    buildMessage({ content: (requests.sent[0] as { content: string }).content }),
+                    buildMessage({ id: 'reply', role: 'assistant', content: reply }),
+                  ]
+                : [],
+          }),
+        ),
       ),
+      http.post(api(`/conversations/${CONVERSATION_ID}/messages`), async ({ request }) => {
+        requests.sent.push(await request.json());
+        return uiMessageStream([
+          { type: 'start' },
+          { type: 'text-start', id: 'text' },
+          { type: 'text-delta', id: 'text', delta: reply },
+          { type: 'text-end', id: 'text' },
+          { type: 'finish' },
+        ]);
+      }),
     );
-    const { user, router } = renderRoutes(routes, '/chat');
+    return requests;
+  };
 
-    expect(await screen.findByText('No conversations yet.')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'New conversation' }));
+  describe('a new conversation', () => {
+    it('opens on /chat without creating a conversation', async () => {
+      let created = false;
+      server.use(
+        http.get(api('/conversations'), () => HttpResponse.json([])),
+        http.post(api('/conversations'), () => {
+          created = true;
+          return HttpResponse.json(buildConversation());
+        }),
+      );
+      renderRoutes(routes, '/chat');
 
-    expect(await screen.findByText('No messages yet')).toBeInTheDocument();
-    const suggestions = screen.getByRole('list', { name: 'Suggestions' });
-    expect(
-      within(suggestions)
-        .getAllByRole('button')
-        .map((button) => button.textContent),
-    ).toEqual([
-      'Hi! What can you help me with?',
-      'Plan a one-day menu based on my profile and dietary preferences',
-    ]);
-    expect(router.state.location.pathname).toBe(`/chat/${CONVERSATION_ID}`);
+      expect(await screen.findByText('No conversations yet.')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'New conversation' })).toBeInTheDocument();
+      expect(screen.getByText('No messages yet')).toBeInTheDocument();
+      const suggestions = screen.getByRole('list', { name: 'Suggestions' });
+      expect(
+        within(suggestions)
+          .getAllByRole('button')
+          .map((button) => button.textContent),
+      ).toEqual([
+        'Hi! What can you help me with?',
+        'Plan a one-day menu based on my profile and dietary preferences',
+      ]);
+      expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+      expect(created).toBe(false);
+    });
+
+    it('creates the conversation with the first message once it is sent', async () => {
+      server.use(http.get(api('/conversations'), () => HttpResponse.json([])));
+      const requests = answeringNewConversation('Day 1: oatmeal');
+      const { user, router } = renderRoutes(routes, '/chat');
+
+      await user.type(await screen.findByLabelText('Message'), 'Plan a menu{Enter}');
+
+      const messages = await screen.findByRole('list', { name: 'Messages' });
+      expect(await within(messages).findByText('Day 1: oatmeal')).toBeInTheDocument();
+      expect(within(messages).getByText('Plan a menu')).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe(`/chat/${CONVERSATION_ID}`);
+      expect(requests.created).toEqual([{}]);
+      expect(requests.sent).toEqual([{ content: 'Plan a menu' }]);
+      expect(screen.getByLabelText('Message')).toHaveValue('');
+    });
+
+    it('creates the conversation with a suggestion', async () => {
+      const suggestion = 'Hi! What can you help me with?';
+      server.use(http.get(api('/conversations'), () => HttpResponse.json([])));
+      const requests = answeringNewConversation('I plan menus.');
+      const { user } = renderRoutes(routes, '/chat');
+
+      await user.click(await screen.findByRole('button', { name: suggestion }));
+
+      expect(await screen.findByText('I plan menus.')).toBeInTheDocument();
+      expect(requests.created).toHaveLength(1);
+      expect(requests.sent).toEqual([{ content: suggestion }]);
+    });
+
+    it('keeps the draft when the conversation could not be created', async () => {
+      server.use(
+        http.get(api('/conversations'), () => HttpResponse.json([])),
+        http.post(api('/conversations'), () => apiError(500, 'Boom')),
+      );
+      const { user, router } = renderRoutes(routes, '/chat');
+
+      await user.type(await screen.findByLabelText('Message'), 'Plan a menu{Enter}');
+
+      expect(await screen.findByText('Could not start a conversation')).toBeInTheDocument();
+      expect(screen.getByLabelText('Message')).toHaveValue('Plan a menu');
+      expect(router.state.location.pathname).toBe('/chat');
+    });
+
+    it('clears the draft on New conversation', async () => {
+      server.use(http.get(api('/conversations'), () => HttpResponse.json([])));
+      const { user } = renderRoutes(routes, '/chat');
+
+      await user.type(await screen.findByLabelText('Message'), 'Half a thought');
+      await user.click(screen.getByRole('link', { name: 'New conversation' }));
+
+      expect(screen.getByLabelText('Message')).toHaveValue('');
+    });
   });
 
   it('sends a suggestion on click', async () => {
@@ -702,7 +793,7 @@ describe('ChatPage', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/chat');
     // The focused delete button went away with its row.
-    expect(screen.getByRole('button', { name: 'New conversation' })).toHaveFocus();
+    expect(screen.getByRole('link', { name: 'New conversation' })).toHaveFocus();
   });
 
   it('keeps the conversation when the deletion is cancelled', async () => {
@@ -797,6 +888,9 @@ describe('ChatPage', () => {
         http.get(api(`/conversations/${NEW_ID}`), () =>
           HttpResponse.json(buildConversation({ id: NEW_ID })),
         ),
+        http.post(api(`/conversations/${NEW_ID}/messages`), () =>
+          uiMessageStream([{ type: 'start' }, { type: 'finish' }]),
+        ),
       );
       const { user, router } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
 
@@ -805,7 +899,16 @@ describe('ChatPage', () => {
       expect(notice).toHaveTextContent('Your menu details carry over.');
       expect(screen.getByLabelText('Message')).toBeEnabled();
 
-      await user.click(within(notice).getByRole('button', { name: 'Start a new conversation' }));
+      await user.click(within(notice).getByRole('link', { name: 'Start a new conversation' }));
+
+      // Nothing is created until the first message is sent.
+      expect(await screen.findByRole('region', { name: 'New conversation' })).toHaveTextContent(
+        'Your menu details carry over from the previous conversation.',
+      );
+      expect(router.state.location.search).toBe(`?from=${CONVERSATION_ID}`);
+      expect(created).toBeUndefined();
+
+      await user.type(screen.getByLabelText('Message'), 'Next week{Enter}');
 
       await waitFor(() => expect(router.state.location.pathname).toBe(`/chat/${NEW_ID}`));
       expect(created).toEqual({ fromConversationId: CONVERSATION_ID });
