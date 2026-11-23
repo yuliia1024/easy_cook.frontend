@@ -14,7 +14,10 @@ import {
   type StreamedPreferenceChange,
   type StreamedPreferencesUpdated,
   type StreamedStatus,
+  type StreamedWishOffer,
   type SuggestedMenu,
+  type WishOffer,
+  type WishOfferAnswer,
 } from '../../api/types';
 import { menuKeys } from '../menus/menus.queries';
 import { preferenceKeys } from '../preferences/preferences.queries';
@@ -34,6 +37,8 @@ export interface PendingMessage {
   preferenceChange: PreferenceChange | null;
   /** From the `data-preferences-updated` part: the change this reply applied. */
   preferencesUpdated: PreferenceChange | null;
+  /** From the `data-wish-offer` part: waits for the user's answer once the reply is saved. */
+  wishOffer: WishOffer | null;
 }
 
 /** The data of the first `type` part of a streamed message. */
@@ -62,6 +67,7 @@ export function toPending(message: UIMessage): PendingMessage {
       dataOf<StreamedPreferenceChange>(message, 'data-preference-change')?.change ?? null,
     preferencesUpdated:
       dataOf<StreamedPreferencesUpdated>(message, 'data-preferences-updated')?.change ?? null,
+    wishOffer: dataOf<StreamedWishOffer>(message, 'data-wish-offer')?.offer ?? null,
   };
 }
 
@@ -119,9 +125,10 @@ export function useReplyStream(id: string) {
 
   /**
    * Resolves to false when the message or the reply failed, or when another message is still being
-   * sent (it is not sent then).
+   * sent (it is not sent then). `wishOffer`: the message answers the wish offer of the latest
+   * reply by its button.
    */
-  const send = async (content: string): Promise<boolean> => {
+  const send = async (content: string, wishOffer?: WishOfferAnswer): Promise<boolean> => {
     if (busy.current) return false;
     busy.current = true;
     setSending(true);
@@ -131,7 +138,10 @@ export function useReplyStream(id: string) {
       setErrorCode(null);
       chat.setMessages([]);
       setShownUntil(Infinity);
-      await chat.sendMessage({ text: content }, { body: { content } });
+      await chat.sendMessage(
+        { text: content },
+        { body: wishOffer ? { content, wishOffer } : { content } },
+      );
       setProgress(NO_PROGRESS);
       setShownUntil(queryClient.getQueryState(chatKeys.detail(id))?.dataUpdateCount ?? 0);
       await Promise.all([

@@ -250,6 +250,7 @@ export function buildMessage(overrides: Partial<Message> = {}): Message {
     menuVersionId: null,
     menuId: null,
     preferenceChange: null,
+    wishOffer: null,
     createdAt: NOW,
     ...overrides,
   };

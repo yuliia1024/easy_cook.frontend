@@ -1098,6 +1098,79 @@ describe('ChatPage', () => {
     }
   });
 
+  describe('a wish offer', () => {
+    const offer = {
+      wishes: 'sushi',
+      recipes: [
+        { id: 'r1', name: 'Salmon poke bowl', mealType: 'lunch' as const },
+        { id: 'r2', name: 'Smoked salmon rolls', mealType: 'snack' as const },
+      ],
+    };
+    const offering = buildMessage({
+      id: 'offer',
+      role: 'assistant',
+      content: 'I found no recipes for "sushi". Shall I plan the menu with the closest ones?',
+      wishOffer: offer,
+    });
+    const asked = buildMessage({ content: 'A 2-day menu with sushi' });
+
+    it.each([
+      ['Use the similar recipes', 'accept'],
+      ['Plan without this wish', 'decline'],
+    ])('sends %p with the answer to the offer of the latest reply', async (label, answer) => {
+      let sent: unknown;
+      server.use(
+        http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+        http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+          HttpResponse.json(buildConversation({ messages: [asked, offering] })),
+        ),
+        http.post(api(`/conversations/${CONVERSATION_ID}/messages`), async ({ request }) => {
+          sent = await request.json();
+          return uiMessageStream([
+            { type: 'start' },
+            { type: 'text-start', id: 'text' },
+            { type: 'text-delta', id: 'text', delta: 'Here is your menu.' },
+            { type: 'text-end', id: 'text' },
+            { type: 'finish' },
+          ]);
+        }),
+      );
+      const { user } = renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const box = await screen.findByRole('region', { name: 'Similar recipes' });
+      expect(within(box).getByRole('link', { name: 'Salmon poke bowl' })).toHaveAttribute(
+        'href',
+        '/recipes/r1',
+      );
+      await user.click(within(box).getByRole('button', { name: label }));
+
+      await waitFor(() => expect(sent).toEqual({ content: label, wishOffer: answer }));
+    });
+
+    it('offers no answer once a later reply ended the offer', async () => {
+      server.use(
+        http.get(api('/conversations'), () => HttpResponse.json([buildConversationSummary()])),
+        http.get(api(`/conversations/${CONVERSATION_ID}`), () =>
+          HttpResponse.json(
+            buildConversation({
+              messages: [
+                asked,
+                offering,
+                buildMessage({ id: 'later', content: 'Never mind' }),
+                buildMessage({ id: 'reply', role: 'assistant', content: 'Okay.' }),
+              ],
+            }),
+          ),
+        ),
+      );
+      renderRoutes(routes, `/chat/${CONVERSATION_ID}`);
+
+      const box = await screen.findByRole('region', { name: 'Similar recipes' });
+      expect(await within(box).findByText('Answered')).toBeInTheDocument();
+      expect(within(box).queryByRole('button')).not.toBeInTheDocument();
+    });
+  });
+
   describe('a proposed preference change', () => {
     const change = { action: 'add', preferenceType: 'allergy', value: 'peanut' } as const;
     const proposal = buildMessage({
