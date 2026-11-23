@@ -1,64 +1,4 @@
-import { buildFood } from '../test/fixtures';
-import {
-  bmi,
-  estimateNutrition,
-  foodKcalMismatch,
-  isMacroShareAllowed,
-  kcalFromMacros,
-  macroShares,
-  round,
-  servingLoad,
-} from './nutrition';
-
-const rice = buildFood({ kcalPer100g: 360, proteinG: 7, fatG: 0.6, carbsG: 80 });
-
-describe('estimateNutrition', () => {
-  it('scales per 100 g values and divides by servings', () => {
-    const result = estimateNutrition([{ food: rice, quantityG: 150, isOptional: false }], 3);
-    expect(result.total).toEqual({ kcal: 540, proteinG: 10.5, fatG: 0.9, carbsG: 120 });
-    expect(result.perServing).toEqual({ kcal: 180, proteinG: 3.5, fatG: 0.3, carbsG: 40 });
-    expect(result.missing).toEqual([]);
-  });
-
-  it('leaves optional ingredients out unless asked', () => {
-    const lines = [
-      { food: rice, quantityG: 100, isOptional: false },
-      { food: rice, quantityG: 100, isOptional: true },
-    ];
-    expect(estimateNutrition(lines, 1).total.kcal).toBe(360);
-    expect(estimateNutrition(lines, 1, true).total.kcal).toBe(720);
-  });
-
-  it('counts an unknown value as 0 and reports it', () => {
-    const unknownFat = buildFood({ kcalPer100g: 100, proteinG: 1, fatG: null, carbsG: 20 });
-    const result = estimateNutrition([{ food: unknownFat, quantityG: 200, isOptional: false }], 1);
-    expect(result.total.fatG).toBe(0);
-    expect(result.missing).toEqual(['fatG']);
-  });
-
-  it('ignores lines without a valid quantity and invalid servings', () => {
-    const result = estimateNutrition([{ food: rice, quantityG: Number.NaN, isOptional: false }], 0);
-    expect(result.total.kcal).toBe(0);
-    expect(result.perServing.kcal).toBe(0);
-  });
-});
-
-describe('round', () => {
-  it('rounds as the backend, past float noise', () => {
-    expect(round(2.4499999999999997)).toBe(2.5);
-    expect(round(1.005, 2)).toBe(1.01);
-    expect(round(2.44)).toBe(2.4);
-    expect(round(-2.46)).toBe(-2.5);
-  });
-
-  it('is used by the estimate', () => {
-    // 0.35 g per 100 g × 700 g = 2.4499999999999997 g.
-    const food = buildFood({ kcalPer100g: 1, proteinG: 0.35, fatG: 0, carbsG: 0 });
-    expect(estimateNutrition([{ food, quantityG: 700, isOptional: false }], 1).total.proteinG).toBe(
-      2.5,
-    );
-  });
-});
+import { bmi, isMacroShareAllowed, kcalFromMacros, macroShares } from './nutrition';
 
 describe('bmi', () => {
   it('is kg per m²', () => {
@@ -98,32 +38,5 @@ describe('isMacroShareAllowed', () => {
     ['carbsG', 0.67, false],
   ] as const)('%s at %s: %s', (macro, share, allowed) => {
     expect(isMacroShareAllowed(macro, share)).toBe(allowed);
-  });
-});
-
-describe('foodKcalMismatch', () => {
-  it('allows 25 % of the estimate', () => {
-    // ≈ 250 kcal by 4/9/4: 62.5 kcal of slack.
-    const grams = { proteinG: 20, fatG: 10, carbsG: 20 };
-    expect(foodKcalMismatch(312, grams)).toBeNull();
-    expect(foodKcalMismatch(130, grams)).toBe(250);
-  });
-
-  it('allows at least 20 kcal for lean foods', () => {
-    const grams = { proteinG: 5, fatG: 0, carbsG: 5 };
-    expect(foodKcalMismatch(60, grams)).toBeNull();
-    expect(foodKcalMismatch(61, grams)).toBe(40);
-  });
-});
-
-describe('servingLoad', () => {
-  it('counts every ingredient, optional ones too, per serving', () => {
-    const lines = [
-      { food: rice, quantityG: 300, isOptional: false },
-      { food: buildFood({ kcalPer100g: null }), quantityG: 100, isOptional: true },
-      { food: rice, quantityG: Number.NaN, isOptional: false },
-    ];
-    expect(servingLoad(lines, 2)).toEqual({ weightG: 200, kcal: 540 });
-    expect(servingLoad(lines, 0)).toEqual({ weightG: 400, kcal: 1080 });
   });
 });

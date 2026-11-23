@@ -5,10 +5,7 @@ import { api, apiError, http, HttpResponse, server } from '../../test/server';
 import { RecipeDetailsPage } from './RecipeDetailsPage';
 
 const recipe = buildRecipe();
-const routes = [
-  { path: '/recipes/:id', element: <RecipeDetailsPage /> },
-  { path: '/recipes', element: <p>recipes list</p> },
-];
+const routes = [{ path: '/recipes/:id', element: <RecipeDetailsPage /> }];
 
 describe('RecipeDetailsPage', () => {
   it('shows calories and macros for the whole recipe, per serving and per ingredient', async () => {
@@ -25,6 +22,8 @@ describe('RecipeDetailsPage', () => {
     const row = screen.getByRole('link', { name: 'Buckwheat, dry' }).closest('tr')!;
     expect(row).toHaveTextContent('150');
     expect(screen.getByText('Boil the buckwheat.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
   });
 
   it('shows the calories and the ingredients of a menu meal opened with its servings', async () => {
@@ -76,26 +75,6 @@ describe('RecipeDetailsPage', () => {
     await user.click(await screen.findByLabelText('Include optional ingredients'));
     expect(await screen.findByText(/Incomplete data/)).toBeInTheDocument();
     expect(requested).toEqual(['false', 'true']);
-  });
-
-  it('deletes after confirmation without reloading the deleted recipe', async () => {
-    let loads = 0;
-    server.use(
-      http.get(api(`/recipes/${recipe.id}`), () => {
-        loads += 1;
-        return loads === 1 ? HttpResponse.json(recipe) : apiError(404, 'Recipe not found');
-      }),
-      http.get(api(`/recipes/${recipe.id}/nutrition`), () => HttpResponse.json(buildNutrition())),
-      http.delete(api(`/recipes/${recipe.id}`), () => new HttpResponse(null, { status: 204 })),
-    );
-    const { user } = renderRoutes(routes, `/recipes/${recipe.id}`);
-
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    const dialog = screen.getByRole('alertdialog', { name: 'Delete this recipe?' });
-    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
-    expect(await screen.findByText('recipes list')).toBeInTheDocument();
-    expect(loads).toBe(1);
-    expect(screen.queryByText('Recipe not found')).not.toBeInTheDocument();
   });
 
   it('shows a not found error', async () => {

@@ -53,16 +53,6 @@ export interface FoodItem {
   updatedAt: string;
 }
 
-export interface FoodItemInput {
-  name: string;
-  nameEn?: string | null;
-  kcalPer100g?: number | null;
-  proteinG?: number | null;
-  fatG?: number | null;
-  carbsG?: number | null;
-  state: FoodState;
-}
-
 export interface FoodQuery {
   search?: string;
   state?: FoodState;
@@ -90,7 +80,7 @@ export interface Recipe {
   instructions: string;
   mealType: MealType;
   dietType: DietTag[];
-  /** Derived from the food categories for an imported recipe; empty for one created here. */
+  /** Derived from the food categories for an imported recipe. */
   allergens: Allergen[];
   servings: number;
   prepTimeMinutes: number | null;
@@ -102,24 +92,6 @@ export interface Recipe {
   /** Without optional ingredients. */
   nutritionPerServing: Macros;
   nutritionComplete: boolean;
-}
-
-export interface RecipeIngredientInput {
-  foodItemId: string;
-  quantityG: number;
-  isOptional?: boolean;
-  notes?: string | null;
-}
-
-export interface RecipeInput {
-  name: string;
-  description?: string | null;
-  instructions: string;
-  mealType: MealType;
-  dietType?: DietTag[];
-  servings: number;
-  prepTimeMinutes?: number | null;
-  ingredients: RecipeIngredientInput[];
 }
 
 export interface RecipeQuery {

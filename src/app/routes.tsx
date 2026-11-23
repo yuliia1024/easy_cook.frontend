@@ -33,21 +33,9 @@ export const routes: RouteObject[] = [
             }),
           },
           {
-            path: 'foods/new',
-            lazy: async () => ({
-              Component: (await import('../features/foods/FoodFormPage')).FoodFormPage,
-            }),
-          },
-          {
             path: 'foods/:id',
             lazy: async () => ({
               Component: (await import('../features/foods/FoodDetailsPage')).FoodDetailsPage,
-            }),
-          },
-          {
-            path: 'foods/:id/edit',
-            lazy: async () => ({
-              Component: (await import('../features/foods/FoodFormPage')).FoodFormPage,
             }),
           },
           {
@@ -57,21 +45,9 @@ export const routes: RouteObject[] = [
             }),
           },
           {
-            path: 'recipes/new',
-            lazy: async () => ({
-              Component: (await import('../features/recipes/RecipeFormPage')).RecipeFormPage,
-            }),
-          },
-          {
             path: 'recipes/:id',
             lazy: async () => ({
               Component: (await import('../features/recipes/RecipeDetailsPage')).RecipeDetailsPage,
-            }),
-          },
-          {
-            path: 'recipes/:id/edit',
-            lazy: async () => ({
-              Component: (await import('../features/recipes/RecipeFormPage')).RecipeFormPage,
             }),
           },
           {

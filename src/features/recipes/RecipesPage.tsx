@@ -2,7 +2,6 @@ import { Link, useSearchParams } from 'react-router';
 import type { DietTag } from '../../api/types';
 import { Button } from '../../components/Button';
 import { AllergenList } from '../../components/AllergenList';
-import { buttonClass } from '../../components/button-class';
 import { EmptyState } from '../../components/EmptyState';
 import { MacroChips } from '../../components/MacroChips';
 import { ErrorAlert } from '../../components/ErrorAlert';
@@ -53,14 +52,7 @@ export function RecipesPage() {
 
   return (
     <>
-      <PageHeader
-        title="Recipes"
-        actions={
-          <Link to="/recipes/new" className={buttonClass()}>
-            Add recipe
-          </Link>
-        }
-      >
+      <PageHeader title="Recipes">
         Calories and macros per serving: the sum of the ingredients, excluding optional ones.
       </PageHeader>
 
@@ -134,7 +126,7 @@ export function RecipesPage() {
             The list is shorter now.
           </EmptyState>
         ) : (
-          <EmptyState title="No recipes found">Change the filters or add a recipe.</EmptyState>
+          <EmptyState title="No recipes found">Change the search or the filters.</EmptyState>
         )
       ) : (
         <>
