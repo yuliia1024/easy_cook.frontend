@@ -3,14 +3,13 @@ import { errorMessage } from '../../lib/errors';
 import { useSignOut } from './auth.queries';
 import { useSession } from './use-session';
 
-/** The signed-in user in the header, with sign out (this device or everywhere). */
+/** The signed-in user in the header, with sign out. */
 export function UserMenu() {
   const { user } = useSession();
   const signOut = useSignOut();
   if (!user) return null;
 
   const label = user.name ?? user.email;
-  const signingOut = signOut.isPending ? signOut.variables : null;
 
   return (
     <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
@@ -33,21 +32,8 @@ export function UserMenu() {
         {user.name && <p className="truncate text-sm font-semibold text-sage-900">{user.name}</p>}
         <p className="truncate text-xs text-sage-500">{user.email}</p>
       </div>
-      <Button
-        variant="ghost"
-        loading={signingOut === 'this'}
-        disabled={signOut.isPending}
-        onClick={() => signOut.mutate('this')}
-      >
+      <Button variant="ghost" loading={signOut.isPending} onClick={() => signOut.mutate()}>
         Sign out
-      </Button>
-      <Button
-        variant="ghost"
-        loading={signingOut === 'everywhere'}
-        disabled={signOut.isPending}
-        onClick={() => signOut.mutate('everywhere')}
-      >
-        Sign out everywhere
       </Button>
       {signOut.isError && (
         <p role="alert" className="basis-full text-right text-xs text-red-700">

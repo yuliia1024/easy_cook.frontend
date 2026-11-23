@@ -15,8 +15,6 @@ export const authApi = {
   session: (): Promise<AuthSession> => request('/auth/session', { session: false }),
   /** Ends this session. */
   logout: (): Promise<void> => request('/auth/logout', { method: 'POST' }),
-  /** Ends every session of the user. */
-  logoutAll: (): Promise<void> => request('/auth/logout-all', { method: 'POST' }),
 };
 
 let restoring: Promise<void> | null = null;

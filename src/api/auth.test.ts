@@ -34,20 +34,20 @@ describe('authApi', () => {
     expect(credentials).toBe('include');
   });
 
-  it.each([
-    ['logout', '/auth/logout'],
-    ['logoutAll', '/auth/logout-all'],
-  ] as const)('%s posts with the CSRF token', async (name, path) => {
-    let csrf: string | null = null;
-    server.use(
-      http.post(api(path), ({ request }) => {
-        csrf = request.headers.get(CSRF_HEADER);
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-    await expect(authApi[name]()).resolves.toBeUndefined();
-    expect(csrf).toBe('csrf-1');
-  });
+  it.each([['logout', '/auth/logout']] as const)(
+    '%s posts with the CSRF token',
+    async (name, path) => {
+      let csrf: string | null = null;
+      server.use(
+        http.post(api(path), ({ request }) => {
+          csrf = request.headers.get(CSRF_HEADER);
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      await expect(authApi[name]()).resolves.toBeUndefined();
+      expect(csrf).toBe('csrf-1');
+    },
+  );
 });
 
 describe('restoreSession', () => {

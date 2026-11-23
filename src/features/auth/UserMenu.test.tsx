@@ -34,26 +34,26 @@ describe('UserMenu', () => {
     expect(screen.getByText('cook@example.com')).toBeInTheDocument();
   });
 
-  it.each([
-    ['Sign out', '/auth/logout'],
-    ['Sign out everywhere', '/auth/logout-all'],
-  ])('%s ends the session, clears the cache and goes to the login page', async (name, path) => {
-    let csrf: string | null = null;
-    server.use(
-      http.post(api(path), ({ request }) => {
-        csrf = request.headers.get(CSRF_HEADER);
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-    const { user, router } = renderMenu();
+  it.each([['Sign out', '/auth/logout']])(
+    '%s ends the session, clears the cache and goes to the login page',
+    async (name, path) => {
+      let csrf: string | null = null;
+      server.use(
+        http.post(api(path), ({ request }) => {
+          csrf = request.headers.get(CSRF_HEADER);
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      const { user, router } = renderMenu();
 
-    await user.click(screen.getByRole('button', { name }));
+      await user.click(screen.getByRole('button', { name }));
 
-    expect(await screen.findByText('login page')).toBeInTheDocument();
-    expect(router.state.location.search).toBe('');
-    expect(csrf).toBe('csrf-1');
-    expect(getSessionState()).toMatchObject({ status: 'signedOut', endedBy: 'signedOut' });
-  });
+      expect(await screen.findByText('login page')).toBeInTheDocument();
+      expect(router.state.location.search).toBe('');
+      expect(csrf).toBe('csrf-1');
+      expect(getSessionState()).toMatchObject({ status: 'signedOut', endedBy: 'signedOut' });
+    },
+  );
 
   it('signs out when the backend answers 401 (the session had ended already)', async () => {
     server.use(http.post(api('/auth/logout'), () => apiError(401, 'Unauthorized')));
@@ -65,10 +65,7 @@ describe('UserMenu', () => {
     expect(getSessionState().endedBy).toBe('signedOut');
   });
 
-  it.each([
-    ['Sign out', '/auth/logout', 500],
-    ['Sign out everywhere', '/auth/logout-all', 503],
-  ])(
+  it.each([['Sign out', '/auth/logout', 500]])(
     '%s keeps the user signed in when the backend fails (%s %i), and can be tried again',
     async (name, path, status) => {
       let calls = 0;
