@@ -34,7 +34,8 @@ export const conversationsApi = {
 /**
  * `POST /conversations/:id/messages` saves the message and streams the reply as text (AI SDK UI
  * message stream) for `useChat`; the reply is saved once complete. The request body is
- * `{ content }` passed as `body` to `sendMessage`; 404 and 429 arrive as `ApiError`s.
+ * `{ content, wishOffer? }` passed as `body` to `sendMessage` (`wishOffer`: a button of the wish
+ * offer of the latest reply); 404 and 429 arrive as `ApiError`s.
  */
 export function createReplyTransport(id: string): DefaultChatTransport<UIMessage> {
   return new DefaultChatTransport<UIMessage>({

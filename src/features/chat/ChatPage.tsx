@@ -16,6 +16,8 @@ import type {
   Message,
   PreferenceChange,
   SuggestedMenu,
+  WishOffer,
+  WishOfferAnswer,
 } from '../../api/types';
 import { Button } from '../../components/Button';
 import { buttonClass } from '../../components/button-class';
@@ -30,6 +32,7 @@ import {
   CONVERSATION_MAX_USER_MESSAGES,
   MESSAGE_MAX_LENGTH,
 } from '../../lib/limits';
+import { MEAL_TYPE_LABELS } from '../../lib/labels';
 import { useTypewriter } from '../../lib/use-typewriter';
 import { useConfirmMenuVersion, useMenu } from '../menus/menus.queries';
 import { usePreferences } from '../preferences/preferences.queries';
@@ -423,6 +426,13 @@ function Messages({
     if (!(await reply.send(message))) setDraft(text);
   };
 
+  /** A button of the wish offer: sent as a message with the answer, the draft left as it is. */
+  const answerOffer = async (answer: WishOfferAnswer): Promise<void> => {
+    if (reply.isSending || full) return;
+    textareaRef.current?.focus();
+    await reply.send(WISH_OFFER_ANSWER_TEXT[answer], answer);
+  };
+
   // The message the conversation was started with (`NewConversation`).
   const sendFirstMessage = useEffectEvent(() => {
     const first = takeFirstMessage(conversation.id);
@@ -476,6 +486,7 @@ function Messages({
                   conversationId={conversation.id}
                   proposalStatus={proposalStatus(message)}
                   appliedInChat={appliedInChat}
+                  onAnswerOffer={answerOffer}
                   onTyping={onTyping}
                 />
               ))}
@@ -590,6 +601,7 @@ function MessageBubble({
   conversationId,
   proposalStatus,
   appliedInChat,
+  onAnswerOffer,
   onTyping,
 }: {
   message: Message | PendingMessage;
@@ -599,6 +611,8 @@ function MessageBubble({
   proposalStatus: ProposalStatus;
   /** The changes the reply under way applied (`data-preferences-updated`). */
   appliedInChat: PreferenceChange[];
+  /** A button of its wish offer was pressed. */
+  onAnswerOffer: (answer: WishOfferAnswer) => void;
   /** +1 when the reply starts typing out, -1 once it is all shown. */
   onTyping: (delta: number) => void;
 }) {
@@ -655,7 +669,60 @@ function MessageBubble({
           status={proposalStatus}
         />
       )}
+      {typed.done && message.wishOffer && (
+        <WishOfferCard offer={message.wishOffer} status={proposalStatus} onAnswer={onAnswerOffer} />
+      )}
     </li>
+  );
+}
+
+/** What a button of a wish offer sends as the user's message, with the answer. */
+const WISH_OFFER_ANSWER_TEXT: Record<WishOfferAnswer, string> = {
+  accept: 'Use the similar recipes',
+  decline: 'Plan without this wish',
+};
+
+/**
+ * The closest recipes a reply offered when none fitted the wishes of the menu request. No menu is
+ * planned until the user answers, by a button here or by a message; only the latest reply's offer
+ * can be answered (`pending`), as for a preference change.
+ */
+function WishOfferCard({
+  offer,
+  status,
+  onAnswer,
+}: {
+  offer: WishOffer;
+  status: ProposalStatus;
+  onAnswer: (answer: WishOfferAnswer) => void;
+}) {
+  return (
+    <section
+      aria-label="Similar recipes"
+      className="flex flex-col gap-3 rounded-[14px] border border-sage-200 bg-sage-25 px-4 py-3 text-sm"
+    >
+      <p className="font-medium">No recipes for “{offer.wishes}”. The closest ones:</p>
+      <ul className="flex flex-col gap-1">
+        {offer.recipes.map(({ id, name, mealType }) => (
+          <li key={id}>
+            <Link to={`/recipes/${id}`} className="font-medium text-brand-800 hover:underline">
+              {name}
+            </Link>{' '}
+            <span className="text-sage-500">· {MEAL_TYPE_LABELS[mealType]}</span>
+          </li>
+        ))}
+      </ul>
+      {status === 'pending' ? (
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => onAnswer('accept')}>{WISH_OFFER_ANSWER_TEXT.accept}</Button>
+          <Button variant="secondary" onClick={() => onAnswer('decline')}>
+            {WISH_OFFER_ANSWER_TEXT.decline}
+          </Button>
+        </div>
+      ) : status === 'outdated' ? (
+        <span className="text-xs text-sage-500">Answered</span>
+      ) : null}
+    </section>
   );
 }
 

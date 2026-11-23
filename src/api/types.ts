@@ -409,6 +409,23 @@ export interface StreamedPreferencesUpdated {
   change: PreferenceChange;
 }
 
+/** The user's answer to a wish offer: plan with the similar recipes, or without the wish. */
+export type WishOfferAnswer = 'accept' | 'decline';
+
+/**
+ * The closest recipes a reply offered when none fitted the wishes of the menu request ("sushi");
+ * no menu is planned until the user answers.
+ */
+export interface WishOffer {
+  wishes: string;
+  recipes: Array<{ id: string; name: string; mealType: MealType }>;
+}
+
+/** The `data-wish-offer` part. */
+export interface StreamedWishOffer {
+  offer: WishOffer;
+}
+
 export interface Message {
   id: string;
   role: MessageRole;
@@ -421,6 +438,11 @@ export interface Message {
    * confirmed, and only while this is the latest reply.
    */
   preferenceChange: PreferenceChange | null;
+  /**
+   * The similar recipes the assistant offered with this reply; answered by a message, or by one
+   * sent with `wishOffer`, while this is the latest reply.
+   */
+  wishOffer: WishOffer | null;
   createdAt: string;
 }
 

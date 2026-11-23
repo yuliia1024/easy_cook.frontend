@@ -49,6 +49,7 @@ describe('toPending', () => {
       suggestedMenu: null,
       preferenceChange: null,
       preferencesUpdated: null,
+      wishOffer: null,
     });
   });
 
@@ -62,6 +63,7 @@ describe('toPending', () => {
       suggestedMenu: null,
       preferenceChange: null,
       preferencesUpdated: null,
+      wishOffer: null,
     });
   });
 
@@ -101,6 +103,24 @@ describe('toPending', () => {
         ],
       }),
     ).toMatchObject({ preferenceChange: null, preferencesUpdated: change });
+  });
+
+  it('takes a wish offer from its part', () => {
+    const offer = {
+      wishes: 'sushi',
+      recipes: [{ id: 'r1', name: 'Salmon poke bowl', mealType: 'lunch' as const }],
+    };
+
+    expect(
+      toPending({
+        id: 'w',
+        role: 'assistant',
+        parts: [
+          { type: 'text', text: 'No sushi. Similar?' },
+          { type: 'data-wish-offer', data: { offer } },
+        ],
+      }),
+    ).toMatchObject({ content: 'No sushi. Similar?', wishOffer: offer });
   });
 
   it('takes the suggested menu and its draft menu from the data-menu part', () => {
