@@ -1,5 +1,7 @@
 import { api, apiError, http, HttpResponse, server } from '../test/server';
-import { ApiError, request, streamFetch, toQueryString } from './http';
+import { buildAuthSession } from '../test/fixtures';
+import { ApiError, CSRF_HEADER, request, streamFetch, toQueryString } from './http';
+import { getCsrfToken, getSessionState } from './session';
 
 describe('toQueryString', () => {
   it('skips empty values and repeats arrays', () => {
@@ -201,5 +203,174 @@ describe('BASE_URL', () => {
     vi.stubEnv('VITE_API_URL', 'http://localhost:3100/api');
     vi.resetModules();
     expect((await import('./http')).BASE_URL).toBe('http://localhost:3100/api');
+  });
+});
+
+describe('the session', () => {
+  const csrfRejected = () => apiError(403, 'Invalid CSRF token');
+
+  it('sends the cookie with every request and no Authorization header', async () => {
+    let seen: Request | undefined;
+    server.use(
+      http.get(api('/things'), ({ request: req }) => {
+        seen = req;
+        return HttpResponse.json({});
+      }),
+    );
+    await request('/things');
+    expect(seen?.credentials).toBe('include');
+    expect(seen?.headers.get('Authorization')).toBeNull();
+  });
+
+  it('sends the CSRF token with unsafe methods only', async () => {
+    const tokens: Record<string, string | null> = {};
+    const record = ({ request: req }: { request: Request }) => {
+      tokens[req.method] = req.headers.get(CSRF_HEADER);
+      return HttpResponse.json({});
+    };
+    server.use(
+      http.get(api('/things'), record),
+      http.post(api('/things'), record),
+      http.put(api('/things'), record),
+      http.patch(api('/things'), record),
+      http.delete(api('/things'), record),
+    );
+    for (const method of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']) {
+      await request('/things', { method, body: method === 'GET' ? undefined : {} });
+    }
+    expect(tokens).toEqual({
+      GET: null,
+      POST: 'csrf-1',
+      PUT: 'csrf-1',
+      PATCH: 'csrf-1',
+      DELETE: 'csrf-1',
+    });
+  });
+
+  it('sends a body as JSON, the stream included', async () => {
+    const types: (string | null)[] = [];
+    server.use(
+      http.post(api('/things'), ({ request: req }) => {
+        types.push(req.headers.get('Content-Type'));
+        return HttpResponse.json({});
+      }),
+    );
+    await request('/things', { method: 'POST', body: { a: 1 } });
+    await streamFetch('/api/things', { method: 'POST', body: '{}' });
+    expect(types).toEqual(['application/json', 'application/json']);
+  });
+
+  it('gets a new CSRF token once for requests rejected together and retries each once', async () => {
+    let probes = 0;
+    server.use(
+      http.get(api('/auth/session'), async () => {
+        probes += 1;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return HttpResponse.json(buildAuthSession({ csrfToken: 'csrf-2' }));
+      }),
+      http.post(api('/things'), async ({ request: req }) =>
+        req.headers.get(CSRF_HEADER) === 'csrf-2'
+          ? HttpResponse.json({ got: await req.json() })
+          : csrfRejected(),
+      ),
+    );
+
+    const results = await Promise.all([
+      request('/things', { method: 'POST', body: { n: 1 } }),
+      request('/things', { method: 'POST', body: { n: 2 } }),
+    ]);
+
+    expect(results).toEqual([{ got: { n: 1 } }, { got: { n: 2 } }]);
+    expect(probes).toBe(1);
+    expect(getCsrfToken()).toBe('csrf-2');
+    expect(getSessionState().status).toBe('signedIn');
+  });
+
+  it('retries a CSRF rejection only once and keeps other 403s as they are', async () => {
+    let posts = 0;
+    server.use(
+      http.get(api('/auth/session'), () => HttpResponse.json(buildAuthSession())),
+      http.post(api('/things'), () => {
+        posts += 1;
+        return csrfRejected();
+      }),
+      http.post(api('/other'), () => apiError(403, 'Forbidden')),
+    );
+    await expect(request('/things', { method: 'POST', body: {} })).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(posts).toBe(2);
+
+    await expect(request('/other', { method: 'POST', body: {} })).rejects.toMatchObject({
+      status: 403,
+      message: 'Forbidden',
+    });
+  });
+
+  it('ends the session on a 401', async () => {
+    server.use(http.get(api('/things'), () => apiError(401, 'Unauthorized')));
+    await expect(request('/things')).rejects.toMatchObject({ status: 401 });
+    expect(getSessionState()).toMatchObject({
+      status: 'signedOut',
+      user: null,
+      endedBy: 'expired',
+    });
+    expect(getCsrfToken()).toBeNull();
+  });
+
+  it('ends the session when the CSRF token cannot be re-fetched for a 401', async () => {
+    server.use(
+      http.get(api('/auth/session'), () => apiError(401, 'Unauthorized')),
+      http.delete(api('/things/1'), () => csrfRejected()),
+    );
+    await expect(request('/things/1', { method: 'DELETE' })).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(getSessionState().endedBy).toBe('expired');
+  });
+
+  it('leaves the session alone without session handling', async () => {
+    server.use(http.post(api('/auth/google'), () => apiError(401, 'Invalid Google token')));
+    await expect(
+      request('/auth/google', { method: 'POST', body: {}, session: false }),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(getSessionState().status).toBe('signedIn');
+  });
+
+  it('gives the stream the cookie, the CSRF token and the same 401 handling', async () => {
+    let seen: Request | undefined;
+    server.use(
+      http.post(api('/stream'), ({ request: req }) => {
+        seen = req;
+        return new HttpResponse('data: 1\n\n');
+      }),
+    );
+    await streamFetch('/api/stream', { method: 'POST', body: '{}' });
+    expect(seen?.credentials).toBe('include');
+    expect(seen?.headers.get(CSRF_HEADER)).toBe('csrf-1');
+
+    server.use(http.post(api('/stream'), () => apiError(401, 'Unauthorized')));
+    await expect(streamFetch('/api/stream', { method: 'POST', body: '{}' })).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(getSessionState().status).toBe('signedOut');
+  });
+
+  it('retries the stream after a CSRF rejection', async () => {
+    server.use(
+      http.get(api('/auth/session'), () =>
+        HttpResponse.json(buildAuthSession({ csrfToken: 'csrf-2' })),
+      ),
+      http.post(api('/stream'), async ({ request: req }) =>
+        req.headers.get(CSRF_HEADER) === 'csrf-2' && (await req.text()) === '{"a":1}'
+          ? new HttpResponse('data: 1\n\n')
+          : csrfRejected(),
+      ),
+    );
+    const response = await streamFetch(new URL('http://localhost/api/stream'), {
+      method: 'POST',
+      body: '{"a":1}',
+    });
+    expect(await response.text()).toBe('data: 1\n\n');
   });
 });

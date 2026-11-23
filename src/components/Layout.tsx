@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useMatch } from 'react-router';
+import { UserMenu } from '../features/auth/UserMenu';
 import { BowlIcon } from './icons';
 
 const LINKS = [
@@ -39,6 +40,7 @@ export function Layout() {
               </NavLink>
             ))}
           </nav>
+          <UserMenu />
         </div>
       </header>
       <main

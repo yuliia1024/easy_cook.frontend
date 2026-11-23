@@ -2,7 +2,7 @@
 
 UI for the Easy Cook backend (`../easy_cook.backend`): food catalog, recipe catalog with calories and macros per
 recipe and per serving, profile and daily nutrition goals, dietary preferences, versioned menus and a chat with
-the assistant (a deterministic stub until the LLM stage). Single user, no auth.
+the assistant (a deterministic stub until the LLM stage). Google sign-in; the API allows listed emails only.
 
 Vite 8 · React 19 · TypeScript 6 · React Router 7 · TanStack Query 5 · react-hook-form + zod 4 ·
 Tailwind CSS 4 · Vitest + Testing Library + MSW. UI language: English.
@@ -14,6 +14,7 @@ nvm use                 # Node 24
 cp .env.example .env    # optional, the defaults work
 npm install
 npm run dev             # http://localhost:5173
+npm run build && npm run preview   # the build, with the production security headers: http://localhost:4173
 ```
 
 The backend must be running on port 3100 (`npm run start:dev` there, see its README for the
@@ -21,10 +22,47 @@ database and seed). The dev server proxies `/api` to `API_PROXY_TARGET`
 (default `http://localhost:3100`), so no CORS setup is needed. For a build served elsewhere set
 `VITE_API_URL` to the full API URL (e.g. `http://localhost:3100/api`) before `npm run build`.
 
+The backend accepts requests with the session cookie only from the origins in its `CORS_ORIGINS`
+(`http://localhost:5173,http://localhost:4173` locally); production lists the web app URL there.
+
+### Sign-in
+
+Set `VITE_GOOGLE_CLIENT_ID` to a Google OAuth client ID (Web application) with
+`http://localhost:5173` (and `http://localhost:4173` for the preview) among its authorized JavaScript origins; the backend checks ID tokens
+against the same client. The login page (`/login`) fetches a single-use nonce
+(`GET /auth/nonce`, renewed after a failed attempt and every 9 minutes), shows the Google button
+(Google Identity Services) and posts the ID token to `POST /auth/google`.
+
+The session is an httpOnly cookie: the page keeps only the user and the CSRF token, in memory,
+and stores nothing. On start-up `GET /auth/session` tells whether the cookie is still valid.
+Every request goes with `credentials: 'include'`; every unsafe one (the chat stream too) with
+`X-CSRF-Token`, re-fetched once when the API rejects it. Any 401 ends the session: the query
+cache is dropped and the login page opens, bringing the user back to the page afterwards.
+That page (`?next=`) must be a path of this origin, parsed as the browser does (tabs and line
+breaks dropped, `\` read as `/`); anything else opens `/`. Signing out ends the session on the
+backend first: when that fails (other than a 401) the user stays signed in and sees the error, since
+the httpOnly cookie would bring the session back on the next page load.
+
+### Security headers
+
+`config/security-headers.ts` holds the headers of the app's pages: a CSP allowing only the app,
+the Google button (`accounts.google.com/gsi/`), the Inter font, Google avatars and the API origin of
+`VITE_API_URL`; no inline or eval scripts (inline styles are allowed: the Google script adds
+them); `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`,
+`Referrer-Policy: strict-origin-when-cross-origin`, `Cross-Origin-Opener-Policy:
+same-origin-allow-popups` (the Google popup) and a `Permissions-Policy`. `npm run preview` serves
+the build with all of them; `npm run dev` without the CSP (Vite's React Refresh script is inline).
+
+The production host (nginx, CDN) must send the same headers, `pageHeaders()` of that file, plus
+`Strict-Transport-Security: max-age=63072000; includeSubDomains` over HTTPS. After changing what the
+app loads (a new script, font or API host), update the policy and check `npm run preview` for CSP
+errors in the browser console.
+
 ## Pages
 
 | Path | |
 |---|---|
+| `/login` | Google sign-in; every other page needs a session |
 | `/chat`, `/chat/:id` | home (`/` opens it); conversations with the assistant; a menu linked to a conversation or reply opens from it; a reply with a menu confirms its version (another version of the same menu is replaced; a version that breaks the current preferences shows why); a proposed preference change is confirmed from its reply |
 | `/foods` | search by name, filter by state and source, calories and macros per 100 g |
 | `/foods/:id`, `/foods/new`, `/foods/:id/edit` | details and form; an empty value is *unknown* (`null`), not 0 |
@@ -50,6 +88,7 @@ Nutrition rules worth knowing:
 ## Structure
 
 ```
+config/         security headers of the pages (dev, preview, production)
 src/
   api/          fetch client (`ApiError`), endpoint functions, types mirroring the backend DTOs
   app/          routes (lazy per page), query client
