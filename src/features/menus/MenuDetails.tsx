@@ -228,7 +228,6 @@ function VersionView({ version }: { version: MenuVersion }) {
 
   return (
     <div className="space-y-6">
-      {version.notes && <p className="text-sm text-sage-700">{version.notes}</p>}
       <div className="grid gap-4 lg:grid-cols-2">
         <MacrosSummary caption="Daily average" values={version.dailyAverage} highlight />
         {goal ? (

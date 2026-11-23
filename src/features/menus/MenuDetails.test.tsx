@@ -1,5 +1,5 @@
 import { focusManager } from '@tanstack/react-query';
-import { act, screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import {
   buildMenu,
   buildMenuMeal,
@@ -73,6 +73,19 @@ describe('MenuDetails', () => {
     expect(issues).toHaveTextContent('Warning: Day 1: 257 kcal');
     expect(issues).toHaveTextContent('Error: Day 1, lunch: contains peanut');
     expect(screen.getByRole('combobox')).toHaveTextContent('v1 · stub planner');
+  });
+
+  it('does not show which model and prompt generated the version', async () => {
+    const notes = 'model: gpt-4o-mini-2024-07-18; prompt: menu-plan@v1';
+    server.use(
+      http.get(api(`/menus/${MENU_ID}`), () =>
+        HttpResponse.json(buildMenu({ versions: [buildMenuVersion({ notes })] })),
+      ),
+    );
+    render();
+
+    expect(await screen.findByRole('region', { name: 'Day 1 · 20 Oct 2026' })).toBeInTheDocument();
+    expect(screen.queryByText(notes)).not.toBeInTheDocument();
   });
 
   it('offers no way to edit the menu or replace a meal', async () => {
@@ -195,12 +208,11 @@ describe('MenuDetails', () => {
             confirmedVersionId: 'v1',
             confirmedAt: '2026-10-21T10:00:00.000Z',
             versions: [
-              buildMenuVersion({ id: 'v2', versionNumber: 2, notes: 'A newer draft' }),
+              buildMenuVersion({ id: 'v2', versionNumber: 2 }),
               buildMenuVersion({
                 id: 'v1',
                 versionNumber: 1,
                 isConfirmed: true,
-                notes: 'The confirmed one',
               }),
             ],
           }),
@@ -209,8 +221,7 @@ describe('MenuDetails', () => {
     );
     render();
 
-    expect(await screen.findByText('The confirmed one')).toBeInTheDocument();
-    expect(screen.getByRole('combobox')).toHaveValue('v1');
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveValue('v1'));
     expect(screen.getByRole('button', { name: 'Confirmed' })).toBeDisabled();
   });
 

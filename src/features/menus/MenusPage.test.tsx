@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import type { MenuSummary } from '../../api/types';
 import { buildMenu, buildMenuSummary, buildMenuVersion } from '../../test/fixtures';
 import { renderRoutes } from '../../test/render';
@@ -90,7 +90,7 @@ describe('MenusPage', () => {
             id: 'd3',
             title: 'Draft 3',
             versions: [3, 2, 1].map((n) =>
-              buildMenuVersion({ id: `v${n}`, versionNumber: n, notes: `Notes of v${n}` }),
+              buildMenuVersion({ id: `v${n}`, versionNumber: n }),
             ),
           }),
         ),
@@ -114,7 +114,7 @@ describe('MenusPage', () => {
     ]);
 
     await user.click(screen.getByRole('link', { name: 'Version 2' }));
-    expect(await screen.findByText('Notes of v2')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveValue('v2'));
     expect(router.state.location.pathname).toBe('/menus/d3');
     expect(router.state.location.search).toBe('?version=2');
     expect(screen.getByRole('link', { name: 'Version 2' })).toHaveAttribute('aria-current', 'true');
@@ -122,7 +122,7 @@ describe('MenusPage', () => {
 
     // The select in the menu keeps the side list in step.
     await user.selectOptions(screen.getByRole('combobox'), 'v1');
-    expect(await screen.findByText('Notes of v1')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveValue('v1'));
     expect(router.state.location.search).toBe('?version=1');
     expect(screen.getByRole('link', { name: 'Version 1' })).toHaveAttribute('aria-current', 'true');
   });
@@ -236,7 +236,6 @@ describe('MenusPage', () => {
                   id: `v${n}`,
                   versionNumber: n,
                   isConfirmed: n === 2,
-                  notes: `Notes of v${n}`,
                 }),
               ),
             }),
@@ -249,7 +248,7 @@ describe('MenusPage', () => {
       confirmedWithDrafts();
       renderRoutes(routes, '/menus');
 
-      expect(await screen.findByText('Notes of v2')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByRole('combobox')).toHaveValue('v2'));
       expect(screen.getByRole('button', { name: 'Versions of Confirmed 1' })).toHaveAttribute(
         'aria-expanded',
         'true',
@@ -263,7 +262,7 @@ describe('MenusPage', () => {
       confirmedWithDrafts();
       renderRoutes(routes, '/menus/c1?version=9');
 
-      expect(await screen.findByText('Notes of v2')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByRole('combobox')).toHaveValue('v2'));
       expect(await screen.findByRole('link', { current: true })).toHaveTextContent('Version 2');
       expect(screen.getAllByRole('link', { current: true })).toHaveLength(1);
     });
