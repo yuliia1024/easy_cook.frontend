@@ -14,10 +14,7 @@ describe('FoodDetailsPage', () => {
     expect(await screen.findByRole('heading', { name: 'Buckwheat, dry' })).toBeInTheDocument();
     expect(screen.getByText('13.3')).toBeInTheDocument();
     expect(screen.getByText(/Some values are unknown/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Edit' })).toHaveAttribute(
-      'href',
-      `/foods/${food.id}/edit`,
-    );
+    expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument();
   });
 
   it('shows a not found error', async () => {

@@ -1,5 +1,4 @@
 import { Link, useParams } from 'react-router';
-import { buttonClass } from '../../components/button-class';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { MacrosSummary } from '../../components/MacrosSummary';
 import { PageHeader } from '../../components/PageHeader';
@@ -25,14 +24,7 @@ export function FoodDetailsPage() {
       <Link to="/foods" className="text-sm text-sage-600 hover:underline">
         ← All foods
       </Link>
-      <PageHeader
-        title={data.name}
-        actions={
-          <Link to={`/foods/${data.id}/edit`} className={buttonClass('secondary')}>
-            Edit
-          </Link>
-        }
-      >
+      <PageHeader title={data.name}>
         {data.nameEn && <span>{data.nameEn} · </span>}
         state: <strong>{FOOD_STATE_LABELS[data.state]}</strong>
       </PageHeader>

@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react';
 import { page } from '../test/fixtures';
 import { renderRoutes } from '../test/render';
 import { api, http, HttpResponse, server } from '../test/server';
+import { resetSession } from '../api/session';
 import { routes } from './routes';
 
 describe('routes', () => {
@@ -9,7 +10,9 @@ describe('routes', () => {
     server.use(http.get(api('/conversations'), () => HttpResponse.json([])));
     const { router } = renderRoutes(routes, '/');
 
-    expect(await screen.findByRole('heading', { name: 'New conversation', level: 1 })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'New conversation', level: 1 }),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/chat');
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     expect(
@@ -29,7 +32,9 @@ describe('routes', () => {
 
     await user.click(screen.getByRole('link', { name: 'Easy Cook' }));
 
-    expect(await screen.findByRole('heading', { name: 'New conversation', level: 1 })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'New conversation', level: 1 }),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/chat');
   });
 
@@ -51,6 +56,27 @@ describe('routes', () => {
     renderRoutes(routes, '/menus');
     expect(await screen.findByRole('navigation', { name: 'Saved menus' })).toBeInTheDocument();
     expect(await screen.findByText('No active menu yet')).toBeInTheDocument();
+  });
+
+  it('sends to the login page without a session and shows the user when signed in', async () => {
+    resetSession();
+    server.use(http.get(api('/auth/session'), () => HttpResponse.json(null, { status: 401 })));
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '');
+    const { router } = renderRoutes(routes, '/recipes');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Sign in to Easy Cook', level: 1 }),
+    ).toBeInTheDocument();
+    expect(router.state.location.search).toBe('?next=%2Frecipes');
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).not.toBeInTheDocument();
+    vi.unstubAllEnvs();
+  });
+
+  it('shows the signed-in user in the header', async () => {
+    server.use(http.get(api('/conversations'), () => HttpResponse.json([])));
+    renderRoutes(routes, '/chat');
+    expect(await screen.findByText('cook@example.com')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
   });
 
   it('shows a not found page', async () => {

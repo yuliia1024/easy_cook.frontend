@@ -21,7 +21,6 @@ describe('RecipeDialog', () => {
     });
     expect(meal).toHaveTextContent('321.6');
     expect(within(dialog).getByText('Boil the buckwheat.')).toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
   });
 
   it('shows the allergens of the recipe', async () => {

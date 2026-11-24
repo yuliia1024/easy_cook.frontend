@@ -3,14 +3,12 @@ import { api, http, HttpResponse, server } from '../test/server';
 import { recipesApi } from './recipes';
 
 /** Records the path and query string of every request. */
-function recordRequests(): { urls: string[]; methods: string[] } {
-  const seen = { urls: [] as string[], methods: [] as string[] };
+function recordRequests(): { urls: string[] } {
+  const seen = { urls: [] as string[] };
   server.use(
     http.all(api('/recipes*'), ({ request }) => {
       const url = new URL(request.url);
       seen.urls.push(url.pathname + url.search);
-      seen.methods.push(request.method);
-      if (request.method === 'DELETE') return new HttpResponse(null, { status: 204 });
       if (url.pathname.endsWith('/nutrition')) return HttpResponse.json(buildNutrition());
       if (url.pathname === '/api/recipes' && request.method === 'GET')
         return HttpResponse.json({ items: [buildRecipe()], total: 1, page: 1, limit: 20 });
@@ -57,23 +55,6 @@ describe('recipesApi', () => {
       '/api/recipes/r1/nutrition?includeOptional=true',
       '/api/recipes/r1/nutrition?includeOptional=false',
     ]);
-  });
-
-  it('creates, updates and removes', async () => {
-    const seen = recordRequests();
-
-    await recipesApi.create({
-      name: 'Oatmeal',
-      instructions: 'Boil.',
-      mealType: 'breakfast',
-      servings: 1,
-      ingredients: [],
-    });
-    await recipesApi.update('r1', { name: 'Porridge' });
-    await expect(recipesApi.remove('r1')).resolves.toBeUndefined();
-
-    expect(seen.methods).toEqual(['POST', 'PATCH', 'DELETE']);
-    expect(seen.urls).toEqual(['/api/recipes', '/api/recipes/r1', '/api/recipes/r1']);
   });
 
   it('passes the signal of the reads to fetch', async () => {

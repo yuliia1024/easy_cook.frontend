@@ -1,4 +1,6 @@
 import type {
+  AuthSession,
+  AuthUser,
   Conversation,
   ConversationSummary,
   DietaryPreference,
@@ -317,4 +319,18 @@ export function buildSuggestedMenu(overrides: Partial<SuggestedMenu> = {}): Sugg
     issues: [],
     ...overrides,
   };
+}
+
+export function buildUser(overrides: Partial<AuthUser> = {}): AuthUser {
+  return {
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    email: 'cook@example.com',
+    name: 'Olena Cook',
+    avatarUrl: null,
+    ...overrides,
+  };
+}
+
+export function buildAuthSession(overrides: Partial<AuthSession> = {}): AuthSession {
+  return { user: buildUser(), csrfToken: 'csrf-1', ...overrides };
 }

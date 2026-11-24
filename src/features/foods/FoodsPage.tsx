@@ -1,6 +1,5 @@
 import { Link, useSearchParams } from 'react-router';
 import { Button } from '../../components/Button';
-import { buttonClass } from '../../components/button-class';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { PageHeader } from '../../components/PageHeader';
@@ -37,14 +36,7 @@ export function FoodsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Foods"
-        actions={
-          <Link to="/foods/new" className={buttonClass()}>
-            Add food
-          </Link>
-        }
-      >
+      <PageHeader title="Foods">
         Calories and macros per 100 g of the food in the given state. “—” means the value is
         unknown.
       </PageHeader>
@@ -103,7 +95,7 @@ export function FoodsPage() {
             The list is shorter now.
           </EmptyState>
         ) : (
-          <EmptyState title="Nothing found">Change the search or add a food.</EmptyState>
+          <EmptyState title="Nothing found">Change the search or the filters.</EmptyState>
         )
       ) : (
         <>
@@ -119,7 +111,6 @@ export function FoodsPage() {
                   <th className="text-right">P, g</th>
                   <th className="text-right">F, g</th>
                   <th className="text-right">C, g</th>
-                  <th>Source</th>
                 </tr>
               </thead>
               <tbody>
@@ -141,11 +132,6 @@ export function FoodsPage() {
                     <td className="text-right tabular-nums">{formatNumber(food.proteinG)}</td>
                     <td className="text-right tabular-nums">{formatNumber(food.fatG)}</td>
                     <td className="text-right tabular-nums">{formatNumber(food.carbsG)}</td>
-                    <td>
-                      <span className="rounded-full bg-sage-100 px-2.5 py-0.5 text-xs whitespace-nowrap text-sage-700">
-                        {FOOD_SOURCE_LABELS[food.source]}
-                      </span>
-                    </td>
                   </tr>
                 ))}
               </tbody>
